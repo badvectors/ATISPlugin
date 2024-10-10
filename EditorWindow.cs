@@ -34,6 +34,7 @@ namespace ATISPlugin
         public EventHandler RefreshEvent { get; set; }  
         public InstalledVoice Voice { get; set; }
         public PromptRate Rate { get; set; } 
+        private string ZuluFrequency { get; set; }  
 
         public EditorWindow()
         {
@@ -98,6 +99,18 @@ namespace ATISPlugin
             {
                 comboBoxVoice.Items.Add(voice.VoiceInfo.Name);
             }
+
+            comboBoxZuluFrequency.Items.Clear();
+
+            if (Plugin.Frequencies.Any())
+            {
+                foreach (var frequency in Plugin.Frequencies)
+                {
+                    comboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
+                }
+
+                comboBoxZuluFrequency.SelectedIndex = 0;
+            }
         }
 
         private void RefreshForm()
@@ -113,6 +126,18 @@ namespace ATISPlugin
             Rate = Control.PromptRate;
 
             comboBoxTimecheck.SelectedIndex = comboBoxTimecheck.FindStringExact(TimeCheck.ToString());
+
+            comboBoxZuluFrequency.Items.Clear();
+
+            foreach (var frequency in Plugin.Frequencies)
+            {
+                comboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(ZuluFrequency))
+            {
+                comboBoxZuluFrequency.SelectedIndex = comboBoxZuluFrequency.FindStringExact(ZuluFrequency);
+            }
 
             if (Plugin.ATIS1.ICAO != null)
             {
@@ -260,9 +285,13 @@ namespace ATISPlugin
 
             if (Control.IsZulu && Network.IsConnected && Control?.ICAO != null)
             {
+                textBoxZulu.TextChanged += TextBox_TextChanged;
+
+                textBoxZulu.Visible = true;
+                comboBoxZuluFrequency.Visible = true;
+                labelFrequency.Visible = true;
                 buttonZulu.BackColor = Color.FromName("ControlDarkDark");
                 buttonZulu.ForeColor = Color.FromName("ControlLightLight");
-                textBoxZulu.Visible = true;
                 textBoxAPCH.Visible = false;
                 textBoxRWY.Visible = false;
                 textBoxSFCCOND.Visible = false;
@@ -291,9 +320,13 @@ namespace ATISPlugin
             }
             else
             {
+                textBoxZulu.TextChanged -= TextBox_TextChanged;
+
                 buttonZulu.BackColor = Color.FromName("Control");
                 buttonZulu.ForeColor = default;
                 textBoxZulu.Visible = false;
+                labelFrequency.Visible = false;
+                comboBoxZuluFrequency.Visible = false;
                 textBoxAPCH.Visible = true;
                 textBoxRWY.Visible = true;
                 textBoxSFCCOND.Visible = true;
@@ -710,6 +743,7 @@ namespace ATISPlugin
 
                 textBoxZulu.Enabled = false;
                 textBoxZulu.Visible = false;
+                comboBoxZuluFrequency.Visible = false;
                 textBoxAPCH.Enabled = false;
                 textBoxRWY.Enabled = false;
                 textBoxSFCCOND.Enabled = false;
@@ -1054,20 +1088,58 @@ namespace ATISPlugin
             if (!Control.IsZulu)
             {
                 Control.IsZulu = true;
-                var zuluInfo = Plugin.ZuluInfo.FirstOrDefault(x => x.ICAO == ICAO);
-                var zuluLine = Control.Lines.FirstOrDefault(x => x.Name == "ZULU");
-                if (zuluInfo != null && zuluLine != null)
-                {
-                    zuluLine.Value = zuluInfo.Text;
-                    textBoxZulu.Text = zuluInfo.Text;
-                }
+
+                GenerateZulu();
             }
             else
             {
                 Control.IsZulu = false;
+
+                textBoxZulu.Text = string.Empty;
+
+                ZuluFrequency = string.Empty;
             }
 
             RefreshForm();
+        }
+
+        private void ComboBoxZuluFrequency_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var zuluFrequency = (string)comboBoxZuluFrequency.SelectedItem;
+
+            if (zuluFrequency == ZuluFrequency) return;
+
+            ZuluFrequency = zuluFrequency;
+
+            GenerateZulu();
+
+            RefreshForm();
+        }
+
+        private void GenerateZulu()
+        {
+            var zuluInfo = Plugin.ZuluInfo.FirstOrDefault(x => x.ICAO == ICAO);
+
+            var zuluLine = Control.Lines.FirstOrDefault(x => x.Name == "ZULU");
+
+            if (zuluInfo == null || zuluLine == null) return;
+
+            var atis = zuluInfo.Text;
+
+            var frequency = Plugin.Frequencies.FirstOrDefault(x => x.Name == ZuluFrequency || x.FriendlyName == ZuluFrequency);
+
+            if (frequency != null)
+            {
+                var station = string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName;
+                
+                atis = atis.Replace("{STATION}", station.ToUpper());
+                
+                atis = atis.Replace("{FREQ}", Conversions.FrequencyToString(frequency.Frequency));
+            }
+
+            zuluLine.Value = atis;
+
+            textBoxZulu.Text = atis;
         }
     }
 }

@@ -26,7 +26,7 @@ namespace ATISPlugin
 
         private static readonly string MetarUri = "https://metar.vatsim.net/metar.php?id=";
 
-        public static readonly Version Version = new Version(2, 1);
+        public static readonly Version Version = new Version(2, 3);
         private static readonly string VersionUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Version.json";
         private static readonly string ZuluUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Zulu.json";
 
@@ -52,15 +52,20 @@ namespace ATISPlugin
         private static Timer BroadcastTimer { get; set; } = new Timer();
         public static List<ATISAudio> ToBroadcast { get; set; } = new List<ATISAudio>();
 
+        public static List<VSCSFrequency> Frequencies { get; set; } = new List<VSCSFrequency>();
+
         public Plugin()
         {
             vatsys.ATIS.Disable();
 
             try
             {
-                Network.Connected += Network_Connected;
+                Network.Connected += OnUpdate;
                 Network.Disconnected += Network_Disconnected;
-                Network.ValidATCChanged += OnUpdate;
+
+                Audio.VSCSFrequenciesChanged += Audio_VSCSFrequenciesChanged;
+                Audio.FrequencyErrorStateChanged += Audio_VSCSFrequenciesChanged;
+                Network.PrimaryFrequencyChanged += Audio_VSCSFrequenciesChanged;
 
                 ATISMenu = new CustomToolStripMenuItem(CustomToolStripMenuItemWindowType.Main, CustomToolStripMenuItemCategory.Windows, new ToolStripMenuItem(DisplayName));
                 ATISMenu.Item.Click += ATISMenu_Click;
@@ -258,27 +263,31 @@ namespace ATISPlugin
             METARTimer.Start();
         }
 
-        private async void Network_Disconnected(object sender, EventArgs e)
+        private void Audio_VSCSFrequenciesChanged(object sender, EventArgs e)
         {
-            MMI.InvokeOnGUI((MethodInvoker)delegate ()
+            Frequencies.Clear();
+
+            foreach (var frequency in Audio.VSCSFrequencies)
             {
-                if (Editor == null || Editor.IsDisposed) return;
-                Editor.Hide();
-            });
+                if (!frequency.Transmit) continue;
 
-            ToBroadcast.Clear();
-
-            if (ATIS1 != null) await ATIS1.Delete(false);
-            if (ATIS2 != null) await ATIS2.Delete(false);
-            if (ATIS3 != null) await ATIS3.Delete(false);
-            if (ATIS4 != null) await ATIS4.Delete(false);
-
-            Editor?.RefreshEvent.Invoke(this, null);
+                Frequencies.Add(frequency);
+            }
         }
 
-        private void Network_Connected(object sender, EventArgs e)
+        private async void Network_Disconnected(object sender, EventArgs e)
         {
-            Editor?.RefreshEvent.Invoke(this, null);
+            if (Editor != null && !Editor.IsDisposed)
+            {
+                Editor.Dispose();
+            }
+
+            ToBroadcast.Clear();
+            
+            await ATIS1?.Delete(false);
+            await ATIS2?.Delete(false);
+            await ATIS3?.Delete(false);
+            await ATIS4?.Delete(false);
         }
 
         private void OnUpdate(object sender, EventArgs e)

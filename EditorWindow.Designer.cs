@@ -77,6 +77,8 @@
             this.buttonATIS4 = new System.Windows.Forms.Button();
             this.textBoxZulu = new System.Windows.Forms.TextBox();
             this.buttonZulu = new System.Windows.Forms.Button();
+            this.comboBoxZuluFrequency = new System.Windows.Forms.ComboBox();
+            this.labelFrequency = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // labelICAO
@@ -584,7 +586,7 @@
             this.textBoxZulu.Location = new System.Drawing.Point(114, 188);
             this.textBoxZulu.Multiline = true;
             this.textBoxZulu.Name = "textBoxZulu";
-            this.textBoxZulu.Size = new System.Drawing.Size(370, 428);
+            this.textBoxZulu.Size = new System.Drawing.Size(370, 397);
             this.textBoxZulu.TabIndex = 52;
             this.textBoxZulu.Visible = false;
             this.textBoxZulu.TextChanged += new System.EventHandler(this.TextBox_TextChanged);
@@ -599,12 +601,36 @@
             this.buttonZulu.UseVisualStyleBackColor = true;
             this.buttonZulu.Click += new System.EventHandler(this.ButtonZulu_Click);
             // 
+            // comboBoxZuluFrequency
+            // 
+            this.comboBoxZuluFrequency.BackColor = System.Drawing.SystemColors.ControlDark;
+            this.comboBoxZuluFrequency.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBoxZuluFrequency.FormattingEnabled = true;
+            this.comboBoxZuluFrequency.Location = new System.Drawing.Point(114, 591);
+            this.comboBoxZuluFrequency.Name = "comboBoxZuluFrequency";
+            this.comboBoxZuluFrequency.Size = new System.Drawing.Size(370, 25);
+            this.comboBoxZuluFrequency.TabIndex = 54;
+            this.comboBoxZuluFrequency.SelectedIndexChanged += new System.EventHandler(this.ComboBoxZuluFrequency_SelectedIndexChanged);
+            // 
+            // labelFrequency
+            // 
+            this.labelFrequency.AutoSize = true;
+            this.labelFrequency.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
+            this.labelFrequency.Location = new System.Drawing.Point(28, 594);
+            this.labelFrequency.Name = "labelFrequency";
+            this.labelFrequency.Size = new System.Drawing.Size(80, 17);
+            this.labelFrequency.TabIndex = 55;
+            this.labelFrequency.Text = "FREQUENCY";
+            this.labelFrequency.TextAlign = System.Drawing.ContentAlignment.TopRight;
+            // 
             // EditorWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoValidate = System.Windows.Forms.AutoValidate.Disable;
             this.ClientSize = new System.Drawing.Size(496, 672);
+            this.Controls.Add(this.labelFrequency);
+            this.Controls.Add(this.comboBoxZuluFrequency);
             this.Controls.Add(this.buttonZulu);
             this.Controls.Add(this.textBoxZulu);
             this.Controls.Add(this.buttonATIS4);
@@ -722,5 +748,7 @@
         private System.Windows.Forms.Button buttonATIS4;
         private System.Windows.Forms.TextBox textBoxZulu;
         private System.Windows.Forms.Button buttonZulu;
+        private System.Windows.Forms.ComboBox comboBoxZuluFrequency;
+        private System.Windows.Forms.Label labelFrequency;
     }
 }
