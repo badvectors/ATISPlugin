@@ -4,7 +4,9 @@ using System.Linq;
 using System.Speech.Synthesis;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+
 using vatsys;
+
 using VATSYSControls;
 
 namespace ATISPlugin
@@ -12,7 +14,7 @@ namespace ATISPlugin
     public partial class EditorWindow : BaseForm
     {
         private ATISControl Control
-        {   
+        {
             get
             {
                 if (Number == 1) return Plugin.ATIS1;
@@ -21,22 +23,22 @@ namespace ATISPlugin
                 else return Plugin.ATIS4;
             }
         }
-        private string ICAO { get; set; }
+        private string? ICAO { get; set; }
         private char ID { get; set; }
-        private string DiplayName => Airport == null ? ICAO : $"{ICAO} - {Airport.FullName}";
+        private string? DiplayName => Airport == null ? ICAO : $"{ICAO} - {Airport.FullName}";
         private Airspace2.Airport Airport => Airspace2.GetAirport(ICAO);
         public int Number { get; private set; } = 1;
         private Dictionary<string, string> Saves { get; set; } = new Dictionary<string, string>();
-        private bool Edits => Saves.Any() || 
-            TimeCheck != Control.TimeCheck || 
-            ID != Control.ID || 
-            Control.PromptRate != Rate || 
+        private bool Edits => Saves.Any() ||
+            TimeCheck != Control.TimeCheck ||
+            ID != Control.ID ||
+            Control.PromptRate != Rate ||
             Control.VoiceName != VoiceName;
         private bool TimeCheck { get; set; }
-        public EventHandler<RefreshEventArgs> RefreshEvent { get; set; }
-        public string VoiceName { get; set; }
-        public PromptRate Rate { get; set; } 
-        private string ZuluFrequency { get; set; }
+        public EventHandler<RefreshEventArgs?> RefreshEvent { get; set; }
+        public string? VoiceName { get; set; }
+        public PromptRate Rate { get; set; }
+        private string? ZuluFrequency { get; set; }
         public bool CanRecord => Edits == false && Control.Broadcasting == false ? true : false;
         private bool Initialized { get; set; }
 
@@ -71,6 +73,11 @@ namespace ATISPlugin
         {
             Number = number;
 
+            if (Control is null)
+            {
+                return;
+            }
+
             ICAO = Control.ICAO;
 
             ID = Control.ID;
@@ -90,7 +97,7 @@ namespace ATISPlugin
             RefreshForm();
         }
 
-        private void OnRefreshEvent(object sender, RefreshEventArgs e)
+        private void OnRefeshEvent(object? sender, RefreshEventArgs? e)
         {
             if (!IsHandleCreated)
             {
@@ -107,7 +114,7 @@ namespace ATISPlugin
             RefreshForm();
         }
 
-        private void EditorWindow_Load(object sender, EventArgs e)
+        private void EditorWindow_Load(object? sender, EventArgs e)
         {
             Change(1);
         }
@@ -153,7 +160,7 @@ namespace ATISPlugin
             }
             else
             {
-                var codes = codeBlock.Codes.Split(',');
+                var codes = codeBlock.Codes?.Split(',') ?? [];
                 foreach (var code in codes)
                 {
                     ComboBoxLetter.Items.Add(code);
@@ -181,6 +188,11 @@ namespace ATISPlugin
             ComboBoxAirport.Items.Clear();
 
             ComboBoxAirport.Items.Add("");
+
+            if (Plugin.ATISData == null)
+            {
+                return;
+            }
 
             foreach (var freq in Plugin.ATISData.Frequencies.OrderBy(x => x.Airport))
             {
@@ -340,7 +352,7 @@ namespace ATISPlugin
 
         private void RefreshForm_TopButtons()
         {
-            if (Plugin.ATIS1.ICAO != null)
+            if (Plugin.ATIS1?.ICAO != null)
             {
                 ButtonATIS1.Text = Plugin.ATIS1.ICAO;
             }
@@ -349,7 +361,7 @@ namespace ATISPlugin
                 ButtonATIS1.Text = "ATIS #1";
             }
 
-            if (Plugin.ATIS2.ICAO != null)
+            if (Plugin.ATIS2?.ICAO != null)
             {
                 ButtonATIS2.Text = Plugin.ATIS2.ICAO;
             }
@@ -358,7 +370,7 @@ namespace ATISPlugin
                 ButtonATIS2.Text = "ATIS #2";
             }
 
-            if (Plugin.ATIS3.ICAO != null)
+            if (Plugin.ATIS3?.ICAO != null)
             {
                 ButtonATIS3.Text = Plugin.ATIS3.ICAO;
             }
@@ -367,7 +379,7 @@ namespace ATISPlugin
                 ButtonATIS3.Text = "ATIS #3";
             }
 
-            if (Plugin.ATIS4.ICAO != null)
+            if (Plugin.ATIS4?.ICAO != null)
             {
                 ButtonATIS4.Text = Plugin.ATIS4.ICAO;
             }
@@ -376,7 +388,7 @@ namespace ATISPlugin
                 ButtonATIS4.Text = "ATIS #4";
             }
 
-            if (Number != 1 && Plugin.ATIS1.HasUpdates)
+            if (Number != 1 && Plugin.ATIS1?.HasUpdates == true)
             {
                 ButtonATIS1.ForeColor = Colours.GetColour(Colours.Identities.Warning);
             }
@@ -385,7 +397,7 @@ namespace ATISPlugin
                 ButtonATIS1.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             }
 
-            if (Number != 2 && Plugin.ATIS2.HasUpdates)
+            if (Number != 2 && Plugin.ATIS2?.HasUpdates == true)
             {
                 ButtonATIS2.ForeColor = Colours.GetColour(Colours.Identities.Warning);
             }
@@ -394,7 +406,7 @@ namespace ATISPlugin
                 ButtonATIS2.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             }
 
-            if (Number != 3 && Plugin.ATIS3.HasUpdates)
+            if (Number != 3 && Plugin.ATIS3?.HasUpdates == true)
             {
                 ButtonATIS3.ForeColor = Colours.GetColour(Colours.Identities.Warning);
             }
@@ -403,7 +415,7 @@ namespace ATISPlugin
                 ButtonATIS3.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             }
 
-            if (Number != 4 && Plugin.ATIS4.HasUpdates)
+            if (Number != 4 && Plugin.ATIS4?.HasUpdates == true)
             {
                 ButtonATIS4.ForeColor = Colours.GetColour(Colours.Identities.Warning);
             }
@@ -710,7 +722,7 @@ namespace ATISPlugin
                         }
                         else
                         {
-                            Label1.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText); 
+                            Label1.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
                         }
                         break;
                     case 2:
@@ -996,7 +1008,7 @@ namespace ATISPlugin
 
         private void RefreshForm_ResetColours()
         {
-            Label1.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText); 
+            Label1.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             Label2.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             Label3.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             Label4.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
@@ -1014,7 +1026,7 @@ namespace ATISPlugin
         private void GetMetar()
         {
             LabelMETAR.Text = "LOADING";
-            
+
             MET.Instance.RequestProduct(new MET.ProductRequest(MET.ProductType.VATSIM_METAR, ICAO, true));
         }
 
@@ -1029,13 +1041,13 @@ namespace ATISPlugin
             ComboBoxLetter.SelectedIndex = ComboBoxLetter.Items.IndexOf(ID.ToString());
         }
 
-        private async void ButtonCreate_Click(object sender, EventArgs e)
+        private async void ButtonCreate_Click(object? sender, EventArgs e)
         {
             if (!Network.IsConnected || !Network.IsValidATC) return;
 
             if (ICAO == null) return;
 
-            var frequency = Plugin.ATISData.Frequencies.FirstOrDefault(x => x.Airport == ICAO);
+            var frequency = Plugin.ATISData?.Frequencies.FirstOrDefault(x => x.Airport == ICAO);
 
             if (frequency == null) return;
 
@@ -1048,7 +1060,7 @@ namespace ATISPlugin
             GetMetar();
         }
 
-        private void ComboBoxAirport_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBoxAirport_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (ComboBoxAirport.SelectedIndex == -1) return;
 
@@ -1070,19 +1082,19 @@ namespace ATISPlugin
             LoadCodes();
         }
 
-        private async void ButtonDelete_Click(object sender, EventArgs e)
+        private async void ButtonDelete_Click(object? sender, EventArgs e)
         {
             await Control.Delete();
 
             Change(Number);
         }
 
-        private void ButtonGetMetar_Click(object sender, EventArgs e)
+        private void ButtonGetMetar_Click(object? sender, EventArgs e)
         {
             GetMetar();
         }
 
-        private void ButtonCancel_Click(object sender, EventArgs e)
+        private void ButtonCancel_Click(object? sender, EventArgs e)
         {
             ID = Control.ID;
 
@@ -1097,12 +1109,12 @@ namespace ATISPlugin
             RefreshForm();
         }
 
-        private void ButtonNext_Click(object sender, EventArgs e)
+        private void ButtonNext_Click(object? sender, EventArgs e)
         {
             IncreaseID();
         }
 
-        private async void ButtonSave_Click(object sender, EventArgs e)
+        private async void ButtonSave_Click(object? sender, EventArgs e)
         {
             RefreshForm_ClearWindCalculator();
 
@@ -1124,7 +1136,7 @@ namespace ATISPlugin
             RefreshForm();
         }
 
-        private async void ButtonBroadcast_Click(object sender, EventArgs e)
+        private async void ButtonBroadcast_Click(object? sender, EventArgs e)
         {
             if (!Control.Broadcasting)
             {
@@ -1140,7 +1152,7 @@ namespace ATISPlugin
             RefreshForm();
         }
 
-        private void TextBox_TextChanged(object sender, EventArgs e)
+        private void TextBox_TextChanged(object? sender, EventArgs e)
         {
             if (!(sender is TextBox textBox)) return;
 
@@ -1206,7 +1218,10 @@ namespace ATISPlugin
                 Saves.Remove(save.Key);
             }
 
-            Saves.Add(line.Name, textBox.Text);
+            if (line.Name != null)
+            {
+                Saves.Add(line.Name, textBox.Text);
+            }
 
             if (Edits && ID == Control.ID && !Control.IsZulu)
             {
@@ -1220,13 +1235,13 @@ namespace ATISPlugin
                 ButtonCancel.Enabled = true;
             }
 
-            if (line.Name.Contains("WIND"))
+            if (line.Name?.Contains("WIND") == true)
             {
                 CalculateWind();
             }
         }
 
-        private void ComboBoxLetter_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBoxLetter_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (!(sender is DropDownBox comboBox)) return;
 
@@ -1246,7 +1261,7 @@ namespace ATISPlugin
             ButtonCancel.Enabled = true;
         }
 
-        private void ComboBoxVoice_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBoxVoice_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (!(sender is DropDownBox comboBox)) return;
 
@@ -1254,9 +1269,9 @@ namespace ATISPlugin
 
             string selectedVoice = comboBox.Items[comboBox.SelectedIndex];
 
-            if (selectedVoice == null || selectedVoice == VoiceName) return;  
+            if (selectedVoice == null || selectedVoice == VoiceName) return;
 
-            VoiceName =  selectedVoice;
+            VoiceName = selectedVoice;
 
             ButtonSave.Enabled = true;
             ButtonCancel.Enabled = true;
@@ -1273,7 +1288,7 @@ namespace ATISPlugin
             }
         }
 
-        private void ComboBoxRate_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBoxRate_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (!(sender is DropDownBox comboBox)) return;
 
@@ -1312,7 +1327,7 @@ namespace ATISPlugin
             ButtonCancel.Enabled = true;
         }
 
-        private void ButtonListen_Click(object sender, EventArgs e)
+        private void ButtonListen_Click(object? sender, EventArgs e)
         {
             if (Control.Listening)
             {
@@ -1327,31 +1342,31 @@ namespace ATISPlugin
             RefreshForm();
         }
 
-        private void ButtonATIS1_Click(object sender, EventArgs e)
+        private void ButtonATIS1_Click(object? sender, EventArgs e)
         {
             Control.SoundPlayer.Stop();
             Change(1);
         }
 
-        private void ButtonATIS2_Click(object sender, EventArgs e)
+        private void ButtonATIS2_Click(object? sender, EventArgs e)
         {
             Control.SoundPlayer.Stop();
             Change(2);
         }
 
-        private void ButtonATIS3_Click(object sender, EventArgs e)
+        private void ButtonATIS3_Click(object? sender, EventArgs e)
         {
             Control.SoundPlayer.Stop();
             Change(3);
         }
 
-        private void ButtonATIS4_Click(object sender, EventArgs e)
+        private void ButtonATIS4_Click(object? sender, EventArgs e)
         {
             Control.SoundPlayer.Stop();
             Change(4);
         }
 
-        private void ComboBoxTimeCheck_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBoxTimeCheck_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (!(sender is DropDownBox comboBox)) return;
 
@@ -1369,7 +1384,7 @@ namespace ATISPlugin
             ButtonCancel.Enabled = true;
         }
 
-        private void ButtonZulu_Click(object sender, EventArgs e)
+        private void ButtonZulu_Click(object? sender, EventArgs e)
         {
             ID = 'Z';
 
@@ -1393,7 +1408,7 @@ namespace ATISPlugin
             RefreshForm();
         }
 
-        private void ComboBoxZuluFrequency_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBoxZuluFrequency_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (ComboBoxZuluFrequency.SelectedIndex == -1) return;
 
@@ -1421,10 +1436,10 @@ namespace ATISPlugin
             if (frequency != null)
             {
                 var station = string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName;
-                
-                atis = atis.Replace("{STATION}", station.ToUpper());
-                
-                atis = atis.Replace("{FREQ}", Conversions.FrequencyToString(frequency.Frequency));
+
+                atis = atis?.Replace("{STATION}", station.ToUpper());
+
+                atis = atis?.Replace("{FREQ}", Conversions.FrequencyToString(frequency.Frequency));
             }
 
             zuluLine.Value = atis;
@@ -1496,7 +1511,7 @@ namespace ATISPlugin
         {
             var saveWind = Saves.FirstOrDefault(x => x.Key.Contains("WIND"));
 
-            var atisWind = Control.Lines.FirstOrDefault(x => x.Name.Contains("WIND"));
+            var atisWind = Control.Lines.FirstOrDefault(x => x.Name?.Contains("WIND") == true);
 
             var wind = saveWind.Key != null ? saveWind.Value : atisWind.Value;
 
@@ -1547,7 +1562,7 @@ namespace ATISPlugin
             return Math.Round(heading, 0);
         }
 
-        public static Airspace2.Airport.Runway OppositeRunway(Airspace2.Airport airport, string runway)
+        public static Airspace2.Airport.Runway? OppositeRunway(Airspace2.Airport airport, string runway)
         {
             if (runway == null) return null;
 
@@ -1564,12 +1579,12 @@ namespace ATISPlugin
             return airport.Runways.FirstOrDefault(x => x.Name == oppositeRunway);
         }
 
-        private void ComboBoxRunway_SelectedIndexChanged(object sender, EventArgs e)
+        private void ComboBoxRunway_SelectedIndexChanged(object? sender, EventArgs e)
         {
             CalculateWind();
         }
 
-        private void ButtonRecord_Click(object sender, EventArgs e)
+        private void ButtonRecord_Click(object? sender, EventArgs e)
         {
             if (Control.Recording)
             {

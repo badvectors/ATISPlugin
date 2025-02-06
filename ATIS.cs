@@ -3,22 +3,22 @@
 
     // NOTE: Generated code may require at least .NET Framework 4.5 or .NET Core/Standard 2.0.
     /// <remarks/>
-    [System.SerializableAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true)]
-    [System.Xml.Serialization.XmlRootAttribute(Namespace = "", IsNullable = false)]
+    [System.Serializable()]
+    [System.ComponentModel.DesignerCategory("code")]
+    [System.Xml.Serialization.XmlType(AnonymousType = true)]
+    [System.Xml.Serialization.XmlRoot(Namespace = "", IsNullable = false)]
     public partial class ATIS
     {
 
-        private ATISFrequency[] frequenciesField;
+        private ATISFrequency[]? frequenciesField;
 
-        private ATISTranslation[] translationsField;
+        private ATISTranslation[]? translationsField;
 
-        private ATISInput[] editorField;
+        private ATISInput[]? editorField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("Frequency", IsNullable = false)]
-        public ATISFrequency[] Frequencies
+        [System.Xml.Serialization.XmlArrayItem("Frequency", IsNullable = false)]
+        public ATISFrequency[]? Frequencies
         {
             get
             {
@@ -31,8 +31,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("Translation", IsNullable = false)]
-        public ATISTranslation[] Translations
+        [System.Xml.Serialization.XmlArrayItem("Translation", IsNullable = false)]
+        public ATISTranslation[]? Translations
         {
             get
             {
@@ -45,8 +45,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("Input", IsNullable = false)]
-        public ATISInput[] Editor
+        [System.Xml.Serialization.XmlArrayItem("Input", IsNullable = false)]
+        public ATISInput[]? Editor
         {
             get
             {
@@ -60,19 +60,19 @@
     }
 
     /// <remarks/>
-    [System.SerializableAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true)]
+    [System.Serializable()]
+    [System.ComponentModel.DesignerCategory("code")]
+    [System.Xml.Serialization.XmlType(AnonymousType = true)]
     public partial class ATISFrequency
     {
 
-        private string airportField;
+        private string? airportField;
 
         private decimal frequencyField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Airport
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? Airport
         {
             get
             {
@@ -85,7 +85,7 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.Xml.Serialization.XmlAttribute()]
         public decimal Frequency
         {
             get
@@ -100,25 +100,25 @@
     }
 
     /// <remarks/>
-    [System.SerializableAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true)]
+    [System.Serializable()]
+    [System.ComponentModel.DesignerCategory("code")]
+    [System.Xml.Serialization.XmlType(AnonymousType = true)]
     public partial class ATISTranslation
     {
 
-        private string stringField;
+        private string? stringField;
 
-        private string spokenField;
+        private string? spokenField;
 
-        private string alphabetField;
+        private string? alphabetField;
 
-        private string fallbackSpokenField;
+        private string? fallbackSpokenField;
 
-        private string regexField;
+        private string? regexField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string String
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? String
         {
             get
             {
@@ -131,8 +131,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Spoken
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? Spoken
         {
             get
             {
@@ -145,8 +145,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Alphabet
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? Alphabet
         {
             get
             {
@@ -159,8 +159,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string FallbackSpoken
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? FallbackSpoken
         {
             get
             {
@@ -173,8 +173,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Regex
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? Regex
         {
             get
             {
@@ -188,29 +188,29 @@
     }
 
     /// <remarks/>
-    [System.SerializableAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true)]
+    [System.Serializable()]
+    [System.ComponentModel.DesignerCategory("code")]
+    [System.Xml.Serialization.XmlType(AnonymousType = true)]
     public partial class ATISInput
     {
 
-        private string nameField;
+        private string? nameField;
 
         private bool nameIsSpokenField;
 
         private bool nameIsSpokenFieldSpecified;
 
-        private string inputTypeField;
+        private string? inputTypeField;
 
         private bool numbersSpokenGroupedField;
 
         private bool numbersSpokenGroupedFieldSpecified;
 
-        private string valueField;
+        private string? valueField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string name
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? name
         {
             get
             {
@@ -223,7 +223,7 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.Xml.Serialization.XmlAttribute()]
         public bool NameIsSpoken
         {
             get
@@ -237,7 +237,7 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        [System.Xml.Serialization.XmlIgnore()]
         public bool NameIsSpokenSpecified
         {
             get
@@ -251,8 +251,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string InputType
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? InputType
         {
             get
             {
@@ -265,7 +265,7 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.Xml.Serialization.XmlAttribute()]
         public bool NumbersSpokenGrouped
         {
             get
@@ -279,7 +279,7 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        [System.Xml.Serialization.XmlIgnore()]
         public bool NumbersSpokenGroupedSpecified
         {
             get
@@ -293,8 +293,8 @@
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string value
+        [System.Xml.Serialization.XmlAttribute()]
+        public string? value
         {
             get
             {
