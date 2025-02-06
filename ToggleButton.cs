@@ -19,7 +19,7 @@ namespace ATISPlugin
 
         private Font _SubFont = SystemFonts.DefaultFont;
 
-        private IContainer components;
+        private IContainer? components;
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Color DisabledForeColor
@@ -120,7 +120,7 @@ namespace ATISPlugin
 
         private void DrawText(Graphics g)
         {
-            Brush brush = null;
+            Brush? brush = null;
             using ((!base.Enabled) ? (brush = new HatchBrush(HatchStyle.Percent50, DisabledForeColor, BackColor)) : (brush = new SolidBrush(ForeColor)))
             {
                 using (StringFormat stringFormat = new StringFormat())
@@ -139,7 +139,7 @@ namespace ATISPlugin
                     stringFormat2.Alignment = StringAlignment.Center;
                     stringFormat3.LineAlignment = StringAlignment.Near;
                     stringFormat3.Alignment = StringAlignment.Center;
-                    Rectangle rectangle = new Rectangle(base.ClientRectangle.Left, base.ClientRectangle.Top, base.ClientRectangle.Width, (int)((double)base.ClientRectangle.Height * 0.55));
+                    Rectangle rectangle = new Rectangle(base.ClientRectangle.Left, base.ClientRectangle.Top, base.ClientRectangle.Width, (int)(ClientRectangle.Height * 0.55));
                     g.DrawString(Text, Font, brush, rectangle, stringFormat2);
                     Rectangle rectangle2 = new Rectangle(base.ClientRectangle.Left, rectangle.Bottom, base.ClientRectangle.Width, base.ClientRectangle.Height - rectangle.Height);
                     g.DrawString(_SubText, _SubFont, brush, rectangle2, stringFormat3);
@@ -171,7 +171,7 @@ namespace ATISPlugin
 
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            this.components = new Container();
         }
     }
 }

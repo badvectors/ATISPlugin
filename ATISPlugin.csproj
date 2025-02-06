@@ -5,6 +5,9 @@
 		<AssemblyName>ATISPlugin</AssemblyName>
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+		<WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
 	</PropertyGroup>
 
 	<ItemGroup>

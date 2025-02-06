@@ -29,14 +29,14 @@ namespace ATISPlugin
 
         private static readonly HttpClient Client = new HttpClient();
 
-        private static CustomToolStripMenuItem ATISMenu;
+        private static CustomToolStripMenuItem? ATISMenu;
 
-        public static ATISControl ATIS1;
-        public static ATISControl ATIS2;
-        public static ATISControl ATIS3;
-        public static ATISControl ATIS4;
+        public static ATISControl ATIS1 = null!;
+        public static ATISControl ATIS2 = null!;
+        public static ATISControl ATIS3 = null!;
+        public static ATISControl ATIS4 = null!;
 
-        private static EditorWindow Editor;
+        private static EditorWindow Editor = null!;
 
         public static string ProfileName()
         {
@@ -46,7 +46,7 @@ namespace ATISPlugin
         }
         public static readonly string ManualVoiceName = "Manual Recording";
         public static string DatasetPath => Path.Combine(Helpers.GetFilesFolder(), "Profiles", ProfileName());
-        public static ATIS ATISData { get; set; }
+        public static ATIS? ATISData { get; set; }
         public static List<ZuluInfo> ZuluInfo { get; set; } = new List<ZuluInfo>();
         public static List<CodeBlock> CodeBlocks { get; set; } = new List<CodeBlock>();
 
@@ -159,12 +159,12 @@ namespace ATISPlugin
             OnMETARUpdate(atis.Number, updated);
         }
 
-        private ATISControl GetATIS(string icao)
+        private ATISControl? GetATIS(string icao)
         {
-            if (ATIS1.ICAO == icao) return ATIS1;
-            if (ATIS2.ICAO == icao) return ATIS2;
-            if (ATIS3.ICAO == icao) return ATIS3;
-            if (ATIS4.ICAO == icao) return ATIS4;
+            if (ATIS1?.ICAO == icao) return ATIS1;
+            if (ATIS2?.ICAO == icao) return ATIS2;
+            if (ATIS3?.ICAO == icao) return ATIS3;
+            if (ATIS4?.ICAO == icao) return ATIS4;
             return null;
         }
 
@@ -175,6 +175,12 @@ namespace ATISPlugin
                 var response = await Client.GetStringAsync(VersionUrl);
 
                 var version = JsonConvert.DeserializeObject<Version>(response);
+
+                if (version is null)
+                {
+                    Errors.Add(new Exception("No version information available"));
+                    return;
+                }
 
                 if (version.Major == Version.Major && version.Minor == Version.Minor) return;
 
@@ -191,7 +197,7 @@ namespace ATISPlugin
 
                 var codeBlocks = JsonConvert.DeserializeObject<CodeBlock[]>(response);
 
-                foreach (var codeBlock in codeBlocks)
+                foreach (var codeBlock in codeBlocks ?? [])
                 {
                     CodeBlocks.Add(codeBlock);
                 }
@@ -210,7 +216,7 @@ namespace ATISPlugin
 
                 var zuluInfo = JsonConvert.DeserializeObject<ZuluInfo[]>(response);
 
-                foreach (var info in zuluInfo)
+                foreach (var info in zuluInfo ?? [])
                 {
                     ZuluInfo.Add(info);
                 }
@@ -269,14 +275,14 @@ namespace ATISPlugin
             }
         }
 
-        private async void Network_Disconnected(object sender, EventArgs e)
+        private async void Network_Disconnected(object? sender, EventArgs? e)
         {
             ToBroadcast.Clear();
             
-            await ATIS1?.Delete();
-            await ATIS2?.Delete();
-            await ATIS3?.Delete();
-            await ATIS4?.Delete();
+            await ATIS1.Delete();
+            await ATIS2.Delete();
+            await ATIS3.Delete();
+            await ATIS4.Delete();
         }
 
         private void OnUpdate(object sender, EventArgs e)
@@ -329,10 +335,10 @@ namespace ATISPlugin
 
         private void GetData()
         {
-            ATISData = (ATIS)LoadXML(DatasetPath + "\\ATIS.xml", typeof(ATIS));
+            ATISData = (ATIS?)LoadXML(DatasetPath + "\\ATIS.xml", typeof(ATIS)) ?? new ATIS();
         }
 
-        public object LoadXML(string filePath, Type type)
+        public object? LoadXML(string filePath, Type type)
         {
             if (!File.Exists(filePath)) return null;
 

@@ -5,17 +5,17 @@ namespace ATISPlugin
 {
     public class METAR
     {
-        public string ICAO { get; set; }
+        public string? ICAO { get; set; }
         public DateTime ProductTime { get; set; } = DateTime.MaxValue;
-        public string Wind { get; set; }
-        public string Visibility { get; set; }
-        public string Cloud { get; set; }
-        public string Weather { get; set; }
-        public string Temperature { get; set; }
-        public string DewPoint { get; set; }
-        public string QNH { get; set; }
+        public string? Wind { get; set; }
+        public string? Visibility { get; set; }
+        public string? Cloud { get; set; }
+        public string? Weather { get; set; }
+        public string? Temperature { get; set; }
+        public string? DewPoint { get; set; }
+        public string? QNH { get; set; }
 
-        public METAR Process(string metar)
+        public METAR? Process(string metar)
         {
             if (metar.Length < 4) return null;
 
@@ -188,7 +188,7 @@ namespace ATISPlugin
             return this;
         }
 
-        public string GetField(METARField field)
+        public string? GetField(METARField field)
         {
             switch (field)
             {

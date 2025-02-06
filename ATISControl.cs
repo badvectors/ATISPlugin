@@ -1,6 +1,7 @@
 ﻿using NAudio.Wave;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -19,12 +20,12 @@ namespace ATISPlugin
     {
         public int Number { get; private set; }
         private int Index => Number - 1;
-        private string Callsign { get; set; }
+        private string? Callsign { get; set; }
         public char ID { get; set; } = 'Z';
         public bool IsZulu { get; set; }
-        public string ICAO { get; set; }
-        private Coordinate VisPoint { get; set; }
-        public string FrequencyDisplay { get; set; }
+        public string? ICAO { get; set; }
+        private Coordinate? VisPoint { get; set; }
+        public string? FrequencyDisplay { get; set; }
         private uint Frequency { get; set; }
         private uint AliasFrequency { get; set; }
         private int FSDFrequency => AliasFrequency != 199998000U ? VSCSFrequencyToFSDFrequency(AliasFrequency) : VSCSFrequencyToFSDFrequency(Frequency);
@@ -32,31 +33,31 @@ namespace ATISPlugin
         public bool Broadcasting { get; set; }
         public bool Listening { get; set; }
         public bool CanListen => !string.IsNullOrWhiteSpace(FileName);
-        public string FileName { get; set; }
+        public string? FileName { get; set; }
         public DateTime DateTimeUtc { get; set; }
         public bool TimeCheck { get; set; } = true;
         public List<ATISLine> Lines { get; set; } = new List<ATISLine>();
         private double ATISDuration { get; set; }
-        private MemoryStream ATISStream;
-        private MemoryStream TimeCheckStream;
+        private MemoryStream? ATISStream;
+        private MemoryStream? TimeCheckStream;
         private double CompleteATISDuration { get; set; }
-        private MemoryStream CompleteStream;
+        private MemoryStream? CompleteStream;
         public List<ATISLine> SuggestedLines { get; set; } = new List<ATISLine>();
         public bool HasUpdates => SuggestedLines.Any();
         public SpeechSynthesizer SpeechSynth { get; set; }
-        private PromptBuilder ATISSpoken { get; set; }
+        private PromptBuilder? ATISSpoken { get; set; }
         private SpeechAudioFormatInfo SpeechFormat { get; set; }
-        public string METARRaw { get; set; }
-        public string METARLastRaw { get; set; }
+        public string? METARRaw { get; set; }
+        public string? METARLastRaw { get; set; }
         private WaveFormat WaveForm { get; set; } = new WaveFormat(44100, 1);
         public PromptRate PromptRate { get; set; } = PromptRate.Medium;
         public InstalledVoice InstalledVoice => SpeechSynth.GetInstalledVoices().FirstOrDefault(x => x.VoiceInfo.Name == VoiceName);
-        public string VoiceName { get; set; }
+        public string? VoiceName { get; set; }
         public SoundPlayer SoundPlayer { get; set; } = new SoundPlayer();
         private CultureInfo CultureInfo => CultureInfo.GetCultureInfo("en");    // TODO: Check if in the ATIS.xml
         public bool Recording { get; set; }
 
-        public event EventHandler StatusChanged;
+        public event EventHandler? StatusChanged;
         private readonly Timer LoopTimer;
 
         public ATISControl()
@@ -90,6 +91,8 @@ namespace ATISPlugin
         private void SetupATISLines()
         {
             Lines.Clear();
+
+            if (Plugin.ATISData?.Editor == null) return;
 
             int number = 1;
 
@@ -338,8 +341,13 @@ namespace ATISPlugin
             }
         }
 
-        public static byte[] ReadMemoryStream(Stream input)
+        public static byte[] ReadMemoryStream(Stream? input)
         {
+            if (input is null)
+            {
+                return Array.Empty<byte>();
+            }
+
             input.Seek(0, SeekOrigin.Begin);
 
             using (MemoryStream ms = new MemoryStream())
@@ -370,7 +378,7 @@ namespace ATISPlugin
             {
                 var zulu = Lines.FirstOrDefault(x => x.Name == "ZULU");
                 if (zulu == null || string.IsNullOrWhiteSpace(zulu.Value)) return output.ToArray();
-                output.Add(zulu.Value);
+                output.Add(zulu.Value!);
                 return output.ToArray();
             }
             foreach (var line in Lines.Where(x => x.Visible).ToList())
@@ -409,7 +417,7 @@ namespace ATISPlugin
             {
                 if (type == METARField.None) continue;
 
-                var updatedLine = updatedLines.GetField(type);
+                var updatedLine = updatedLines?.GetField(type);
 
                 if (updatedLine == null) continue;
 
@@ -448,7 +456,7 @@ namespace ATISPlugin
             }
 
             if (weatherLine != null &&
-                (visLine != null || visLine.Value != "GT 10KM") &&
+                (visLine != null || visLine?.Value != "GT 10KM") &&
                 cloudLine != null &&
                 weatherLine.Value == "CAVOK")
             {
@@ -464,32 +472,34 @@ namespace ATISPlugin
             return true;
         }
 
-        private PromptBuilder DoReplacements(PromptBuilder promptBuilder, string text, bool groupNumbers = false)
+        private PromptBuilder DoReplacements(PromptBuilder promptBuilder, string? text, bool groupNumbers = false)
         {
-            if (InstalledVoice == null) return null;
+            if (InstalledVoice == null) return promptBuilder;
 
-            if (text == null) return null;
+            if (text == null) return promptBuilder;
 
             var stringReplacements = new Dictionary<string, string>();
 
             var regexReplacements = new Dictionary<string, string>();
 
-            foreach (var item in Plugin.ATISData.Translations.Where(x => !string.IsNullOrWhiteSpace(x.String)).OrderByDescending(x => x.String.Length))
+            if (Plugin.ATISData == null) return promptBuilder;
+
+            foreach (var item in Plugin.ATISData.Translations.Where(x => !string.IsNullOrWhiteSpace(x.String)).OrderByDescending(x => x.String!.Length))
             {
-                stringReplacements.Add(item.String, item.Spoken);
+                stringReplacements.Add(item.String!, item.Spoken!);
             }
 
-            foreach (var item in Plugin.ATISData.Translations.Where(x => !string.IsNullOrWhiteSpace(x.Regex)).OrderByDescending(x => x.Regex.Length))
+            foreach (var item in Plugin.ATISData.Translations.Where(x => !string.IsNullOrWhiteSpace(x.Regex)).OrderByDescending(x => x.Regex!.Length))
             {
-                regexReplacements.Add(item.Regex, item.Spoken);
+                regexReplacements.Add(item.Regex!, item.Spoken!);
             }
 
             var phonemeReplacements = Plugin.ATISData.Translations.Where(x => !string.IsNullOrWhiteSpace(x.String) && !string.IsNullOrWhiteSpace(x.Alphabet));
 
-            foreach (KeyValuePair<string, string> keyValuePair in (IEnumerable<KeyValuePair<string, string>>)stringReplacements.Where<KeyValuePair<string, string>>((Func<KeyValuePair<string, string>, bool>)(s => s.Key.Contains(" "))).OrderByDescending<KeyValuePair<string, string>, int>((Func<KeyValuePair<string, string>, int>)(s => s.Key.Length)))
+            foreach (var keyValuePair in stringReplacements.Where(s => s.Key.Contains(" ")).OrderByDescending(s => s.Key.Length))
                 text = text.Replace(keyValuePair.Key, keyValuePair.Value);
 
-            foreach (KeyValuePair<string, string> keyValuePair in (IEnumerable<KeyValuePair<string, string>>)regexReplacements.Where<KeyValuePair<string, string>>((Func<KeyValuePair<string, string>, bool>)(s => s.Key.Contains(" ") || s.Key.Contains("\\s"))).OrderByDescending<KeyValuePair<string, string>, int>((Func<KeyValuePair<string, string>, int>)(s => s.Key.Length)))
+            foreach (var keyValuePair in regexReplacements.Where(s => s.Key.Contains(" ") || s.Key.Contains("\\s")).OrderByDescending(s => s.Key.Length))
                 text = Regex.Replace(text, keyValuePair.Key, keyValuePair.Value);
 
             var output = new List<string>();
@@ -498,16 +508,18 @@ namespace ATISPlugin
             {
                 var input = word;
 
-                KeyValuePair<string, string> keyValuePair = new KeyValuePair<string, string>((string)null, (string)null);
+                KeyValuePair<string, string>? keyValuePair = null;
 
                 foreach (var regexReplacement in regexReplacements.OrderByDescending(x => x.Key.Length))
                 {
                     if (Regex.IsMatch(input, regexReplacement.Key))
                         keyValuePair = regexReplacement;
 
-                    if (keyValuePair.Key == null) continue;
+                    if (keyValuePair?.Key == null) continue;
 
-                    input = Regex.Replace(input, keyValuePair.Key, keyValuePair.Value);
+                    if (keyValuePair?.Value == null) continue;
+
+                    input = Regex.Replace(input, keyValuePair.Value.Key, keyValuePair.Value.Value);
 
                     break;
                 }
@@ -516,7 +528,7 @@ namespace ATISPlugin
                 {
                     foreach (Match match in Regex.Matches(input, "(\\s|^|\\.|\\,)\\d+(\\s|$|\\.|\\,)").Cast<Match>())
                     {
-                        string newValue = match.Value.Aggregate<char, string>(string.Empty, (Func<string, char, string>)((c, i) => i != ' ' ? c + i.ToString() + " " : c + i.ToString()));
+                        string newValue = match.Value.Aggregate(string.Empty, (c, i) => i != ' ' ? c + i.ToString() + " " : c + i.ToString());
                         input = input.Replace(match.Value, newValue);
                     }
                 }
@@ -579,9 +591,9 @@ namespace ATISPlugin
             return promptBuilder;
         }
 
-        private double SetContent(PromptBuilder speech, ref MemoryStream stream)
+        private double SetContent(PromptBuilder? speech, ref MemoryStream stream)
         {
-            if (SpeechSynth == null) throw new Exception("Text to speech not available.");
+            if (SpeechSynth == null) throw new ArgumentNullException(nameof(speech), "Text to speech not available.");
             SpeechSynth.SetOutputToAudioStream(stream, SpeechFormat);
             SpeechSynth.Speak(speech);
             SpeechSynth.SetOutputToNull();
@@ -659,7 +671,7 @@ namespace ATISPlugin
         private string CreateTimecheckText(TimeSpan offset)
         {
             DateTime nearest = (DateTime.UtcNow + offset).RoundToNearest(TimeSpan.FromSeconds(30.0));
-            string timecheckText = "Time check, " + nearest.ToString("HHmm").Aggregate<char, string>(string.Empty, (Func<string, char, string>)((c, i) => c + i.ToString() + " "));
+            string timecheckText = "Time check, " + nearest.ToString("HHmm").Aggregate(string.Empty, (c, i) => c + i.ToString() + " ");
             if (nearest.Second == 30)
                 timecheckText += " and a half.";
             return timecheckText;
@@ -675,12 +687,17 @@ namespace ATISPlugin
         {
             CompleteStream = new MemoryStream();
 
+            if (ATISStream == null)
+            {
+                return 0;
+            }
+
             ATISStream.Seek(0, SeekOrigin.Begin);
             ATISStream.CopyTo(CompleteStream);
 
             CompleteStream.Seek(0, SeekOrigin.End);
 
-            if (TimeCheck)
+            if (TimeCheck && TimeCheckStream != null)
             {
                 GenerateTimeCheck();
                 TimeCheckStream.Seek(0, SeekOrigin.Begin);
@@ -690,8 +707,8 @@ namespace ATISPlugin
             return CompleteStream.Length / WaveForm.AverageBytesPerSecond * 1000.0;
         }
 
-        private WaveFileWriter writer; 
-        private WaveInEvent waveIn;
+        private WaveFileWriter? writer; 
+        private WaveInEvent? waveIn;
 
         public void StartRecording()
         {
@@ -745,6 +762,7 @@ namespace ATISPlugin
         public void StopRecording()
         {
             if (writer == null) return;
+            if (waveIn == null) return;
 
             waveIn.StopRecording();
 
@@ -778,7 +796,7 @@ namespace ATISPlugin
         {
             if (freq.IndexOf('.') < 3)
                 return freq;
-            string str = Conversions.Normalize25KhzFrequency(Convert.ToUInt32(freq.Replace(".", "")) * (uint)Math.Pow(10.0, (double)(9 - (freq.Length - 1)))).ToString();
+            string str = Conversions.Normalize25KhzFrequency(Convert.ToUInt32(freq.Replace(".", "")) * (uint)Math.Pow(10.0, 9 - (freq.Length - 1))).ToString();
             freq = str.Substring(0, 3) + "." + str.Substring(3);
             return freq;
         }

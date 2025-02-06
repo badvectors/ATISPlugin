@@ -10,7 +10,7 @@ namespace ATISPlugin
             Id = Guid.NewGuid();
         }
 
-        public ATISAudio(byte[] audio, int atisIndex, string callsign, uint frequency, Coordinate location, TimeSpan interval) : this()
+        public ATISAudio(byte[] audio, int atisIndex, string? callsign, uint frequency, Coordinate? location, TimeSpan interval) : this()
         { 
             Audio = audio;
             ATISIndex = atisIndex;
@@ -21,11 +21,11 @@ namespace ATISPlugin
         }
 
         public Guid Id { get; set; }
-        public byte[] Audio { get; set; }
+        public byte[]? Audio { get; set; }
         public int ATISIndex { get; set; }
-        public string Callsign { get; set; }
+        public string? Callsign { get; set; }
         public uint Frequency { get; set; }
-        public Coordinate VisPoint { get; set; }
+        public Coordinate? VisPoint { get; set; }
         public TimeSpan Duration { get; set; }
     }
 }

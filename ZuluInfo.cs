@@ -2,7 +2,7 @@
 {
     public class ZuluInfo
     {
-        public string ICAO { get; set; }
-        public string Text { get; set; }
+        public string? ICAO { get; set; }
+        public string? Text { get; set; }
     }
 }
