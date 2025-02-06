@@ -29,6 +29,12 @@ namespace ATISPlugin
 
                 if (item == "AUTO") continue;
 
+                if (item == "CAVOK") 
+                {
+                    Weather = "CAVOK";
+                    continue;
+                }
+
                 if (item == "//") // weather
                 {
                     // Weather = "WEATHER NAVBL";

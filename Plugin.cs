@@ -22,7 +22,7 @@ namespace ATISPlugin
         public string Name => "ATIS Editor";
         public static string DisplayName => "ATIS Editor";
 
-        public static readonly Version Version = new Version(3, 12);
+        public static readonly Version Version = new Version(3, 14);
         private static readonly string VersionUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Version.json";
         private static readonly string ZuluUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Zulu.json";
         private static readonly string CodesUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Codes.json";
@@ -269,6 +269,8 @@ namespace ATISPlugin
                 Frequencies.Add(frequency);
             }
 
+            if (!IsEditorOpen()) return;
+
             if (Editor != null && !Editor.IsDisposed && frequenciesUpdate)
             {
                 Editor?.RefreshEvent.Invoke(this, null);
@@ -287,6 +289,8 @@ namespace ATISPlugin
 
         private void OnUpdate(object sender, EventArgs e)
         {
+            if (!IsEditorOpen()) return;
+
             Editor?.RefreshEvent.Invoke(this, null);
         }
 
@@ -301,8 +305,6 @@ namespace ATISPlugin
 
         private void OnMETARUpdate(int number, bool updated)
         {
-            var editorOpen = IsEditorOpen();
-
             if (!updated)
             {
                 if (IsEditorOpen() && Editor.Number == number)
@@ -372,17 +374,17 @@ namespace ATISPlugin
                 Editor = new EditorWindow();
             }
 
-            MMI.InvokeOnGUI(() =>
-            {
-                if (!Editor.Visible)
-                {
-                    Editor.Show();
-                }
-                else
-                {
-                    Editor.BringToFront();
-                }
-            });
+            MMI.InvokeOnGUI(delegate () { Editor.Show(Form.ActiveForm); });
+            //{
+            //    if (!Editor.Visible)
+            //    {
+            //        Editor.Show();
+            //    }
+            //    else
+            //    {
+            //        Editor.BringToFront();
+            //    }
+            //});
         }
 
         public void OnFDRUpdate(FDP2.FDR updated)

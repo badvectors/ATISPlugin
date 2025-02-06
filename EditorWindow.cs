@@ -66,7 +66,7 @@ namespace ATISPlugin
 
             Initialized = true;
 
-            RefreshEvent += OnRefeshEvent;
+            RefreshEvent += OnRefreshEvent;
         }
 
         public void Change(int number)
@@ -99,12 +99,19 @@ namespace ATISPlugin
 
         private void OnRefeshEvent(object? sender, RefreshEventArgs? e)
         {
+            if (!IsHandleCreated)
+            {
+                CreateHandle();
+            }
+
             if (e != null && e.Number != Number)
             {
                 Change(Number);
+
+                return;
             }
 
-            Invoke(new Action(() => RefreshForm()));
+            RefreshForm();
         }
 
         private void EditorWindow_Load(object? sender, EventArgs e)
@@ -272,74 +279,78 @@ namespace ATISPlugin
 
         public void RefreshForm()
         {
-            if (!Initialized) return;
+            Invoke(new Action(() => {
 
-            if (Plugin.ProfileName() == "New Zealand")
-            {
-                ButtonZulu.Visible = false;
-            }
-            else
-            {
-                ButtonZulu.Visible = true;
-            }
+                if (!Initialized) return;
 
-            LabelMETAR.Text = string.Empty;
+                if (Plugin.ProfileName() == "New Zealand")
+                {
+                    ButtonZulu.Visible = false;
+                }
+                else
+                {
+                    ButtonZulu.Visible = true;
+                }
 
-            if (ICAO == null)
-            {
-                ComboBoxAirport.SelectedIndex = ComboBoxAirport.Items.IndexOf("");
-            }
-            else
-            {
-                var index = ComboBoxAirport.Items.IndexOf(DiplayName);
+                LabelMETAR.Text = string.Empty;
 
-                if (ComboBoxAirport.SelectedIndex != index) ComboBoxAirport.SelectedIndex = ComboBoxAirport.Items.IndexOf(DiplayName);
-            }
+                if (ICAO == null)
+                {
+                    ComboBoxAirport.SelectedIndex = ComboBoxAirport.Items.IndexOf("");
+                }
+                else
+                {
+                    var index = ComboBoxAirport.Items.IndexOf(DiplayName);
 
-            ComboBoxLetter.SelectedIndex = ComboBoxLetter.Items.IndexOf(ID.ToString());
+                    if (ComboBoxAirport.SelectedIndex != index) ComboBoxAirport.SelectedIndex = ComboBoxAirport.Items.IndexOf(DiplayName);
+                }
 
-            if (VoiceName != null)
-            {
-                ComboBoxVoice.SelectedIndex = ComboBoxVoice.Items.IndexOf(VoiceName);
-            }
+                ComboBoxLetter.SelectedIndex = ComboBoxLetter.Items.IndexOf(ID.ToString());
 
-            ComboBoxRate.SelectedIndex = ComboBoxRate.Items.IndexOf(Rate.ToString());
+                if (VoiceName != null)
+                {
+                    ComboBoxVoice.SelectedIndex = ComboBoxVoice.Items.IndexOf(VoiceName);
+                }
 
-            ComboBoxTimeCheck.SelectedIndex = ComboBoxTimeCheck.Items.IndexOf(TimeCheck.ToString());
+                ComboBoxRate.SelectedIndex = ComboBoxRate.Items.IndexOf(Rate.ToString());
 
-            if (ComboBoxZuluFrequency.Items == null) ComboBoxZuluFrequency.Items = new List<string>();
+                ComboBoxTimeCheck.SelectedIndex = ComboBoxTimeCheck.Items.IndexOf(TimeCheck.ToString());
 
-            ComboBoxZuluFrequency.Items.Clear();
+                if (ComboBoxZuluFrequency.Items == null) ComboBoxZuluFrequency.Items = new List<string>();
 
-            foreach (var frequency in Plugin.Frequencies)
-            {
-                ComboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
-            }
+                ComboBoxZuluFrequency.Items.Clear();
 
-            if (!string.IsNullOrWhiteSpace(ZuluFrequency))
-            {
-                ComboBoxZuluFrequency.SelectedIndex = ComboBoxZuluFrequency.Items.IndexOf(ZuluFrequency);
-            }
+                foreach (var frequency in Plugin.Frequencies)
+                {
+                    ComboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
+                }
 
-            RefeshForm_TopButtons();
+                if (!string.IsNullOrWhiteSpace(ZuluFrequency))
+                {
+                    ComboBoxZuluFrequency.SelectedIndex = ComboBoxZuluFrequency.Items.IndexOf(ZuluFrequency);
+                }
 
-            if (Network.IsConnected && Control?.ICAO == null)
-            {
-                RefreshForm_ClearWindCalculator();
-                RefreshFrom_NoATIS();
-            }
-            else if (Network.IsConnected && Control?.ICAO != null)
-            {
-                RefreshForm_WithATIS();
-            }
-            else
-            {
-                RefreshForm_ClearWindCalculator();
-                RefreshForm_NotConnected();
-            }
+                RefreshForm_TopButtons();
+
+                if (Network.IsConnected && Control?.ICAO == null)
+                {
+                    RefreshForm_ClearWindCalculator();
+                    RefreshFrom_NoATIS();
+                }
+                else if (Network.IsConnected && Control?.ICAO != null)
+                {
+                    RefreshForm_WithATIS();
+                }
+                else
+                {
+                    RefreshForm_ClearWindCalculator();
+                    RefreshForm_NotConnected();
+                }
+
+            }));
         }
 
-        private void RefeshForm_TopButtons()
+        private void RefreshForm_TopButtons()
         {
             if (Plugin.ATIS1?.ICAO != null)
             {
@@ -989,8 +1000,10 @@ namespace ATISPlugin
 
         private void RefreshForm_ClearWindCalculator()
         {
-            LabelWindComponents.Text = "";
-            ComboBoxRunway.SelectedIndex = ComboBoxRunway.Items.IndexOf("");
+            Invoke(new Action(() => {
+                LabelWindComponents.Text = "";
+                ComboBoxRunway.SelectedIndex = ComboBoxRunway.Items.IndexOf("");
+            }));
         }
 
         private void RefreshForm_ResetColours()
@@ -1434,7 +1447,7 @@ namespace ATISPlugin
             TextBoxZulu.Text = atis;
         }
 
-        private string Wind(string wind, double rwyHeading)
+        private string WindOutput(string wind, double rwyHeading)
         {
             if (string.IsNullOrWhiteSpace(wind))
             {
@@ -1517,7 +1530,7 @@ namespace ATISPlugin
                 runwayHeading = runwayNameHeading;
             }
 
-            var windComponents = Wind(wind, runwayHeading.Value);
+            var windComponents = WindOutput(wind, runwayHeading.Value);
 
             LabelWindComponents.Text = windComponents;
         }
