@@ -194,7 +194,7 @@ namespace ATISPlugin
             catch (Exception ex)
             {
                 Errors.Add(new Exception($"Could not create ATIS: {ex.Message}"), Plugin.DisplayName);
-
+      
                 await Delete();
             }
 
@@ -211,10 +211,7 @@ namespace ATISPlugin
         {
             await BroadcastStop();
 
-            if (Network.GetATISConnected(Index))
-            {
-                Network.DisconnectATIS(Index);
-            }
+            Network.DisconnectATIS(Index);
 
             ICAO = null;
             ID = 'Z'; 

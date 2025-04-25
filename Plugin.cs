@@ -22,7 +22,7 @@ namespace ATISPlugin
         public string Name => "ATIS Editor";
         public static string DisplayName => "ATIS Editor";
 
-        public static readonly Version Version = new Version(3, 17);
+        public static readonly Version Version = new Version(3, 18);
         private static readonly string VersionUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Version.json";
         private static readonly string ZuluUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Zulu.json";
         private static readonly string CodesUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Codes.json";
@@ -41,6 +41,7 @@ namespace ATISPlugin
         public static string ProfileName()
         {
             if (Profile.Name.Contains("Australia")) return "Australia";
+            else if (Profile.Name.Contains("Pacific")) return "Pacific";
             else if (Profile.Name.Contains("VATNZ")) return "New Zealand";
             else return string.Empty;
         }
@@ -59,7 +60,7 @@ namespace ATISPlugin
 
         public Plugin()
         {
-            if (!Profile.Name.Contains("Australia") && !Profile.Name.Contains("VATNZ"))
+            if (!Profile.Name.Contains("Australia") && !Profile.Name.Contains("Pacific") && !Profile.Name.Contains("VATNZ"))
             {
                 return;
             }
@@ -135,7 +136,7 @@ namespace ATISPlugin
 
             _ = GetCodeBlocks();
 
-                _ = CheckVersion();
+            _ = CheckVersion();
 
             MET.Instance.ProductsChanged += METARChanged;
         }
