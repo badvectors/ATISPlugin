@@ -277,8 +277,6 @@ namespace ATISPlugin
                 ATISDuration = SetContent(ATISSpoken, ref ATISStream);
 
                 GenerateAutoFile();
-
-                Listening = true;
             }
             else
             {
@@ -756,19 +754,26 @@ namespace ATISPlugin
 
         private void GenerateAutoFile()
         {
-            FileName = $"{ICAO}_{ID}_{DateTime.UtcNow:HHmmss}.wav";
+            try
+            {
+                FileName = $"{ICAO}_{ID}_{DateTime.UtcNow:HHmmss}.wav";
 
-            var directory = Path.Combine(Plugin.DatasetPath, "Temp");
+                var directory = Path.Combine(Plugin.DatasetPath, "Temp");
 
-            var file = Path.Combine(directory, FileName);
+                var file = Path.Combine(directory, FileName);
 
-            if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
 
-            SpeechSynth.SetOutputToWaveFile(file, SpeechFormat);
-            SpeechSynth.Speak(ATISSpoken);
-            SpeechSynth.SetOutputToNull();
+                SpeechSynth.SetOutputToWaveFile(file, SpeechFormat);
+                SpeechSynth.Speak(ATISSpoken);
+                SpeechSynth.SetOutputToNull();
 
-            ListenStart();
+                ListenStart();
+            }
+            catch (Exception ex)
+            {
+                Errors.Add(new Exception($"Could not generate ATIS: {ex.Message}"), Plugin.DisplayName);
+            }
         }
 
         private static int VSCSFrequencyToFSDFrequency(uint freq) => (int)(freq / 1000U) - 100000;

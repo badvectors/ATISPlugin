@@ -65,7 +65,7 @@ namespace ATISPlugin
                 {
                     var wind = item.Replace("KT", "").Replace("MPS", "").Replace("KPH", "");
 
-                    if (item == "00000")
+                    if (wind == "00000")
                     {
                         Wind = "CALM";
 
