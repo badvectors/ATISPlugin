@@ -1,11 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net472</TargetFramework>
 		<RootNamespace>ATISPlugin</RootNamespace>
 		<AssemblyName>ATISPlugin</AssemblyName>
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
-		<BaseOutputPath>C:\Users\ajdun\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins\ATIS</BaseOutputPath>
+		<BaseOutputPath>C:\Users\$(USERNAME)\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins\ATIS</BaseOutputPath>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Speech.Synthesis;
@@ -1022,11 +1022,26 @@ namespace ATISPlugin
         {
             if (Control.IsZulu) return;
 
-            ID = (Char)(Convert.ToUInt16(ID) + 1);
-
-            if (Convert.ToUInt16(ID) >= 90) ID = 'A';
-
-            ComboBoxLetter.SelectedIndex = ComboBoxLetter.Items.IndexOf(ID.ToString());
+            // Get the current index of the ID in the valid codes list
+            int currentIndex = ComboBoxLetter.Items.IndexOf(ID.ToString());
+            
+            if (currentIndex == -1) 
+            {
+                // If current ID is not in the valid list, select the first one
+                if (ComboBoxLetter.Items.Count > 0)
+                {
+                    ComboBoxLetter.SelectedIndex = 0;
+                    ID = ComboBoxLetter.Items[0].ToString()[0];
+                }
+                return;
+            }
+            
+            // Calculate the next index, wrapping around if needed
+            int nextIndex = (currentIndex + 1) % ComboBoxLetter.Items.Count;
+            
+            // Update the ID and selection
+            ComboBoxLetter.SelectedIndex = nextIndex;
+            ID = ComboBoxLetter.Items[nextIndex].ToString()[0];
         }
 
         private async void ButtonCreate_Click(object sender, EventArgs e)
