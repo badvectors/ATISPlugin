@@ -135,7 +135,7 @@ namespace ATISPlugin
 
             _ = GetCodeBlocks();
 
-            //_ = CheckVersion();
+            _ = CheckVersion();
 
             MET.Instance.ProductsChanged += METARChanged;
         }
