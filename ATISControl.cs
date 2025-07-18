@@ -211,7 +211,7 @@ namespace ATISPlugin
         {
             await BroadcastStop();
 
-            Network.DisconnectATIS(Index);
+            if (Network.GetATISConnected(Index)) Network.DisconnectATIS(Index);
 
             ICAO = null;
             ID = 'Z'; 
@@ -296,6 +296,8 @@ namespace ATISPlugin
 
             var file = Path.Combine(directory, FileName);
 
+            if (!File.Exists(file)) return;
+
             SoundPlayer.SoundLocation = file;
 
             SoundPlayer.Play();
@@ -310,40 +312,51 @@ namespace ATISPlugin
 
         public void BroadcastStart()
         {
-            Broadcasting = true;
-
-            Network.UpdateATIS(Index, ID, GetInfo());
-
-            if (VoiceName == Plugin.ManualVoiceName)
+            try
             {
-                var directory = Path.Combine(Plugin.DatasetPath, "Temp");
+                Broadcasting = true;
 
-                var file = Path.Combine(directory, FileName);
+                Network.UpdateATIS(Index, ID, GetInfo());
 
-                var audio = File.ReadAllBytes(file);
+                if (VoiceName == Plugin.ManualVoiceName)
+                {
+                    var directory = Path.Combine(Plugin.DatasetPath, "Temp");
 
-                var atisAudio = new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, TimeSpan.Zero);
+                    var file = Path.Combine(directory, FileName);
 
-                Plugin.ToBroadcast.Add(atisAudio);
+                    var audio = File.ReadAllBytes(file);
+
+                    var atisAudio = new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, TimeSpan.Zero);
+
+                    Plugin.ToBroadcast.Add(atisAudio);
+                }
+                else
+                {
+                    CompleteATISDuration = GenerateCompleteStream();
+
+                    var audio = ReadMemoryStream(CompleteStream);
+
+                    var duration = TimeCheck ? TimeSpan.FromMilliseconds(CompleteATISDuration + 60000.0) : TimeSpan.Zero;
+
+                    var atisAudio = new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, duration);
+
+                    Plugin.ToBroadcast.Add(atisAudio);
+
+                    if (!TimeCheck) return;
+
+                    LoopTimer.Interval = CompleteATISDuration;
+
+                    LoopTimer.Start();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                CompleteATISDuration = GenerateCompleteStream();
+                Errors.Add(new Exception($"Could not broadcast ATIS: {ex.Message}"), Plugin.DisplayName);
 
-                var audio = ReadMemoryStream(CompleteStream);
-
-                var duration = TimeCheck ? TimeSpan.FromMilliseconds(CompleteATISDuration + 60000.0) : TimeSpan.Zero;
-
-                var atisAudio = new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, duration);
-
-                Plugin.ToBroadcast.Add(atisAudio);
-
-                if (!TimeCheck) return;
-
-                LoopTimer.Interval = CompleteATISDuration;
-
-                LoopTimer.Start();
+                Broadcasting = false;
             }
+
+
         }
 
         public static byte[] ReadMemoryStream(Stream input)

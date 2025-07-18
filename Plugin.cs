@@ -52,7 +52,6 @@ namespace ATISPlugin
         public static List<CodeBlock> CodeBlocks { get; set; } = new List<CodeBlock>();
 
         public static SoundPlayer SoundPlayer { get; set; } = new SoundPlayer();
-        private static Timer METARTimer { get; set; } = new Timer();
         private static Timer BroadcastTimer { get; set; } = new Timer();
         public static List<ATISAudio> ToBroadcast { get; set; } = new List<ATISAudio>();
 
@@ -136,7 +135,7 @@ namespace ATISPlugin
 
             _ = GetCodeBlocks();
 
-            _ = CheckVersion();
+            //_ = CheckVersion();
 
             MET.Instance.ProductsChanged += METARChanged;
         }

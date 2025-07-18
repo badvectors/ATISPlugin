@@ -69,25 +69,29 @@ namespace ATISPlugin
 
         public void Change(int number)
         {
-            Number = number;
+            try
+            {
+                Number = number;
 
-            ICAO = Control.ICAO;
+                ICAO = Control.ICAO;
 
-            ID = Control.ID;
+                ID = Control.ID;
 
-            TimeCheck = Control.TimeCheck;
+                TimeCheck = Control.TimeCheck;
 
-            Rate = Control.PromptRate;
+                Rate = Control.PromptRate;
 
-            VoiceName = Control.VoiceName;
+                VoiceName = Control.VoiceName;
 
-            Saves.Clear();
+                Saves.Clear();
 
-            LoadOptions();
+                LoadOptions();
 
-            RefreshForm_ClearWindCalculator();
+                RefreshForm_ClearWindCalculator();
 
-            RefreshForm();
+                RefreshForm();
+            }
+            catch { }
         }
 
         private void OnRefreshEvent(object sender, RefreshEventArgs e)
