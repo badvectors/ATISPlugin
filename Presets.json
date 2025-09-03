@@ -193,7 +193,8 @@
        "EXP VOR APCH"
       ],
       "Item2": [
-       "05 FOR ARR, RWY 23 FOR DEP"
+       "05 FOR ARR, RWY 23 FOR DEP",
+       "29 AND 36 FOR ARRIVAL RWY 29 FOR DEP"
       ],
       "Item3": [
        "WET",
@@ -351,6 +352,18 @@
       ],
       "Item4": [
           "SIMUL PARL RWY OPS IN USE. EXP TFC ON FINAL AND OPP BASE OF THE PARL RWY"
+      ],
+      "Item12": "GROUND OR TOWER"
+     },
+     {
+      "ICAO": "YBTL",
+      "Item2": [
+          "01 AND 07"
+      ],
+      "Item3": [
+       "WET",
+       "DAMP",
+       "DRY"
       ],
       "Item12": "GROUND OR TOWER"
      }
