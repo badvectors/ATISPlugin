@@ -5,7 +5,7 @@
 		<AssemblyName>ATISPlugin</AssemblyName>
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
-		<BaseOutputPath>C:\Users\$(USERNAME)\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins\ATIS</BaseOutputPath>
+		<BaseOutputPath>C:\Users\ajdun\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins</BaseOutputPath>
 	</PropertyGroup>
 
 	<ItemGroup>

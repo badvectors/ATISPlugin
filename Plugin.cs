@@ -26,6 +26,7 @@ namespace ATISPlugin
         private static readonly string VersionUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Version.json";
         private static readonly string ZuluUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Zulu.json";
         private static readonly string CodesUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Codes.json";
+        private static readonly string PresetsUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Presets.json";
 
         private static readonly HttpClient Client = new HttpClient();
 
@@ -41,6 +42,7 @@ namespace ATISPlugin
         public static string ProfileName()
         {
             if (Profile.Name.Contains("Australia")) return "Australia";
+            else if (Profile.Name.Contains("South Pacific")) return "South Pacific";
             else if (Profile.Name.Contains("Pacific")) return "Pacific";
             else if (Profile.Name.Contains("VATNZ")) return "New Zealand";
             else return string.Empty;
@@ -50,6 +52,7 @@ namespace ATISPlugin
         public static ATIS ATISData { get; set; }
         public static List<ZuluInfo> ZuluInfo { get; set; } = new List<ZuluInfo>();
         public static List<CodeBlock> CodeBlocks { get; set; } = new List<CodeBlock>();
+        public static List<PresetOption> PresetOptions { get; set; } = new List<PresetOption>();
 
         public static SoundPlayer SoundPlayer { get; set; } = new SoundPlayer();
         private static Timer BroadcastTimer { get; set; } = new Timer();
@@ -59,11 +62,8 @@ namespace ATISPlugin
 
         public Plugin()
         {
-            if (!Profile.Name.Contains("Australia") && !Profile.Name.Contains("Pacific") && !Profile.Name.Contains("VATNZ"))
-            {
-                return;
-            }
-            
+            if (ProfileName() == string.Empty) return;
+
             vatsys.ATIS.Disable();
 
             try
@@ -135,7 +135,9 @@ namespace ATISPlugin
 
             _ = GetCodeBlocks();
 
-            _ = CheckVersion();
+            _ = GetPresetOptions();
+
+            //_ = CheckVersion();
 
             MET.Instance.ProductsChanged += METARChanged;
         }
@@ -194,6 +196,25 @@ namespace ATISPlugin
                 foreach (var codeBlock in codeBlocks)
                 {
                     CodeBlocks.Add(codeBlock);
+                }
+            }
+            catch (Exception ex)
+            {
+                Errors.Add(new Exception(ex.Message), DisplayName);
+            }
+        }
+
+        private static async Task GetPresetOptions()
+        {
+            try
+            {
+                var response = await Client.GetStringAsync(PresetsUrl);
+
+                var presetOptions = JsonConvert.DeserializeObject<PresetOption[]>(response);
+
+                foreach (var presetOption in presetOptions)
+                {
+                    PresetOptions.Add(presetOption);
                 }
             }
             catch (Exception ex)

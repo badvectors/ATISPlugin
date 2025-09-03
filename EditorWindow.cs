@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using vatsys;
 using VATSYSControls;
+using static vatsys.Airspace2;
 
 namespace ATISPlugin
 {
@@ -23,7 +24,7 @@ namespace ATISPlugin
         }
         private string ICAO { get; set; }
         private char ID { get; set; }
-        private string DiplayName => Airport == null ? ICAO : $"{ICAO} - {Airport.FullName}";
+        private string DisplayName => Airport == null ? ICAO : $"{ICAO} - {Airport.FullName}";
         private Airspace2.Airport Airport => Airspace2.GetAirport(ICAO);
         public int Number { get; private set; } = 1;
         private Dictionary<string, string> Saves { get; set; } = new Dictionary<string, string>();
@@ -116,6 +117,87 @@ namespace ATISPlugin
             Change(1);
         }
 
+        private void LoadPresets()
+        {
+            var presets = Plugin.PresetOptions.FirstOrDefault(x => x.ICAO == ICAO);
+
+            if (presets == null) return;
+
+            TextBox1.Items.Clear();
+
+            if (presets.Item1 != null)
+            {
+                foreach (var preset in presets.Item1)
+                {
+                    TextBox1.Items.Add(preset);
+                }
+            }
+
+            TextBox2.Items.Clear();
+
+            if (presets.Item2 != null)
+            {
+                foreach (var preset in presets.Item2)
+                {
+                    TextBox2.Items.Add(preset);
+                }
+            }
+
+            TextBox3.Items.Clear();
+
+            if (presets.Item3 != null)
+            {
+                foreach (var preset in presets.Item3)
+                {
+                    TextBox3.Items.Add(preset);
+                }
+            }
+
+            TextBox4.Items.Clear();
+
+            if (presets.Item4 != null)
+            {
+                foreach (var preset in presets.Item4)
+                {
+                    TextBox4.Items.Add(preset);
+                }
+            }
+
+            TextBox11.Items.Clear();
+
+            if (presets.Item11 != null)
+            {
+                foreach (var preset in presets.Item11)
+                {
+                    TextBox11.Items.Add(preset);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(presets.Item12))
+            {
+                TextBox12.Text = presets.Item12;
+            }
+
+            var airport = Airspace2.GetAirport(ICAO);
+
+            if (airport == null) return;
+
+            if (Label2.Text == "RWY")
+            {
+                foreach (var runway in airport.Runways.OrderBy(x => x.Name))
+                {
+                    TextBox2.Items.Add($"{runway.Name.ToString().PadLeft(2, '0')}");
+                }
+            }
+            else if (Label3.Text == "RWY")
+            {
+                foreach (var runway in airport.Runways.OrderBy(x => x.Name))
+                {
+                    TextBox3.Items.Add($"{runway.Name.ToString().PadLeft(2, '0')}");
+                }
+            }
+        }
+
         private void LoadRunways()
         {
             ComboBoxRunway.Items.Clear();
@@ -186,21 +268,23 @@ namespace ATISPlugin
 
             ComboBoxAirport.Items.Add("");
 
-            foreach (var freq in Plugin.ATISData.Frequencies.OrderBy(x => x.Airport))
+            foreach (var frequency in Plugin.ATISData.Frequencies.OrderBy(x => x.Airport))
             {
-                var airport = Airspace2.GetAirport(freq.Airport);
+                var airport = Airspace2.GetAirport(frequency.Airport);
 
                 if (airport == null)
                 {
-                    ComboBoxAirport.Items.Add(freq.Airport);
+                    ComboBoxAirport.Items.Add(frequency.Airport);
                 }
                 else
                 {
-                    ComboBoxAirport.Items.Add($"{freq.Airport} - {airport.FullName}");
+                    ComboBoxAirport.Items.Add($"{frequency.Airport} - {airport.FullName}");
                 }
             }
 
             LoadCodes();
+
+            LoadPresets();
 
             ComboBoxVoice.Items.Clear();
 
@@ -292,9 +376,9 @@ namespace ATISPlugin
                 }
                 else
                 {
-                    var index = ComboBoxAirport.Items.IndexOf(DiplayName);
+                    var index = ComboBoxAirport.Items.IndexOf(DisplayName);
 
-                    if (ComboBoxAirport.SelectedIndex != index) ComboBoxAirport.SelectedIndex = ComboBoxAirport.Items.IndexOf(DiplayName);
+                    if (ComboBoxAirport.SelectedIndex != index) ComboBoxAirport.SelectedIndex = ComboBoxAirport.Items.IndexOf(DisplayName);
                 }
 
                 ComboBoxLetter.SelectedIndex = ComboBoxLetter.Items.IndexOf(ID.ToString());
@@ -1376,13 +1460,13 @@ namespace ATISPlugin
 
             if (comboBox.SelectedIndex == -1) return;
 
-            var timecheckOK = bool.TryParse(comboBox.Items[comboBox.SelectedIndex], out bool timecheck);
+            var timeCheckOK = bool.TryParse(comboBox.Items[comboBox.SelectedIndex], out bool timeCheck);
 
-            if (!timecheckOK) return;
+            if (!timeCheckOK) return;
 
-            if (TimeCheck == timecheck) return;
+            if (TimeCheck == timeCheck) return;
 
-            TimeCheck = timecheck;
+            TimeCheck = timeCheck;
 
             ButtonSave.Enabled = true;
             ButtonCancel.Enabled = true;

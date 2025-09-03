@@ -1,47 +1,51 @@
 ﻿[
   {
     "ICAO": "YMML",
-    "Item1": [ /** APCH **/
+    "Item1": [ 
       "EXP GLS OR ILS ACPH",
       "ACFT ON THE ALPHA STAR EXP INSTR APCH"
     ],
-    "Item2": [ // RWY
+    "Item2": [ 
       "27 FOR ARR, RWY 34 FOR DEPS VIA MNG, NONIX, DOSEL AND BOGES, RWY 27 FOR ALL OTHER DEPS",
       "16 FOR ARR, RWY 27 FOR DEP",
       "09 FOR ARR, RWY 16 FOR DEP",
       "34 FOR ARR, RWY 27 FOR ARR AND DEP"
     ],
-    "Item3": [ // SFC COND
+    "Item3": [ 
       "WET",
       "DAMP",
       "DRY"
     ],
-    "Item4": [ // OPR INFO
+    "Item4": [ 
       "SIMUL INDEP CROSSING RWY OPS IN PROG",
       "LAND AND HOLD SHORT OPERATIONS IN PROGRESS",
       "ALL DEPARTURES MUST REQUEST PUSH BACK ON 127.2"
     ],
-    "Item12": "GROUND OR APPROACH" // OFCW_NOTIFY
+    "Item12": "GROUND OR APPROACH" 
   },
   {
-    "ICAO": "##",
-    "Item1": [ // APCH
-      "##",
-      "##"
+    "ICAO": "_icao",
+    "Item1": [
+      "_apch",
+      "_apch"
     ],
-    "Item2": [ // RWY
-      "##",
-      "##"
+    "Item2": [ 
+      "_rwy",
+      "_rwy"
     ],
-    "Item3": [ // SFC COND
+    "Item3": [ 
       "WET",
       "DAMP",
       "DRY"
     ],
-    "Item4": [ // OPR INFO
-      "##",
-      "##"
+    "Item4": [
+      "_oprInfo",
+      "_oprInfo"
     ],
-    "Item12": "GROUND OR APPROACH" // OFCW_NOTIFY
+    "Item11": [
+      "_sigWx",
+      "_sigWx"
+    ],
+    "Item12": "GROUND OR APPROACH" 
   }
 ]
