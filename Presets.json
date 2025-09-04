@@ -39,7 +39,8 @@
     "Item2": [
       "34L AND R FOR ARRS AND DEPS",
       "16L AND R FOR ARRS AND DEPS",
-      "34L FOR ARRS. RWY 16L FOR DEPS. RWY 34L AVBL FOR DEP IF OPERATIONALLY REQD OR AS DIRECTED BY ATC"
+      "34L FOR ARRS. RWY 16L FOR DEPS. RWY 34L AVBL FOR DEP IF OPERATIONALLY REQD OR AS DIRECTED BY ATC",
+      "34L FOR ARRS. RWY 16R FOR DEPS."
     ],
     "Item3": [
       "WET",
@@ -192,7 +193,8 @@
        "EXP VOR APCH"
       ],
       "Item2": [
-       "05 FOR ARR, RWY 23 FOR DEP"
+       "05 FOR ARR, RWY 23 FOR DEP",
+       "29 AND 36 FOR ARRIVAL RWY 29 FOR DEP"
       ],
       "Item3": [
        "WET",
@@ -350,6 +352,18 @@
       ],
       "Item4": [
           "SIMUL PARL RWY OPS IN USE. EXP TFC ON FINAL AND OPP BASE OF THE PARL RWY"
+      ],
+      "Item12": "GROUND OR TOWER"
+     },
+     {
+      "ICAO": "YBTL",
+      "Item2": [
+          "01 AND 07"
+      ],
+      "Item3": [
+       "WET",
+       "DAMP",
+       "DRY"
       ],
       "Item12": "GROUND OR TOWER"
      }
