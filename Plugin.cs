@@ -44,6 +44,7 @@ namespace ATISPlugin
             if (Profile.Name.Contains("Australia")) return "Australia";
             else if (Profile.Name.Contains("South Pacific")) return "South Pacific";
             else if (Profile.Name.Contains("Pacific")) return "Pacific";
+            else if (Profile.Name.Contains("Combined Oceanic")) return "VATNZ Combined Oceanic";
             else if (Profile.Name.Contains("VATNZ")) return "New Zealand";
             else return string.Empty;
         }
