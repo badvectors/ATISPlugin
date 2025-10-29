@@ -117,87 +117,6 @@ namespace ATISPlugin
             Change(1);
         }
 
-        private void LoadPresets()
-        {
-            var presets = Plugin.PresetOptions.FirstOrDefault(x => x.ICAO == ICAO);
-
-            if (presets == null) return;
-
-            TextBox1.Items.Clear();
-
-            if (presets.Item1 != null)
-            {
-                foreach (var preset in presets.Item1)
-                {
-                    TextBox1.Items.Add(preset);
-                }
-            }
-
-            TextBox2.Items.Clear();
-
-            if (presets.Item2 != null)
-            {
-                foreach (var preset in presets.Item2)
-                {
-                    TextBox2.Items.Add(preset);
-                }
-            }
-
-            TextBox3.Items.Clear();
-
-            if (presets.Item3 != null)
-            {
-                foreach (var preset in presets.Item3)
-                {
-                    TextBox3.Items.Add(preset);
-                }
-            }
-
-            TextBox4.Items.Clear();
-
-            if (presets.Item4 != null)
-            {
-                foreach (var preset in presets.Item4)
-                {
-                    TextBox4.Items.Add(preset);
-                }
-            }
-
-            TextBox11.Items.Clear();
-
-            if (presets.Item11 != null)
-            {
-                foreach (var preset in presets.Item11)
-                {
-                    TextBox11.Items.Add(preset);
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(presets.Item12))
-            {
-                TextBox12.Text = presets.Item12;
-            }
-
-            var airport = Airspace2.GetAirport(ICAO);
-
-            if (airport == null) return;
-
-            if (Label2.Text == "RWY")
-            {
-                foreach (var runway in airport.Runways.OrderBy(x => x.Name))
-                {
-                    TextBox2.Items.Add($"{runway.Name.ToString().PadLeft(2, '0')}");
-                }
-            }
-            else if (Label3.Text == "RWY")
-            {
-                foreach (var runway in airport.Runways.OrderBy(x => x.Name))
-                {
-                    TextBox3.Items.Add($"{runway.Name.ToString().PadLeft(2, '0')}");
-                }
-            }
-        }
-
         private void LoadRunways()
         {
             ComboBoxRunway.Items.Clear();
@@ -284,8 +203,6 @@ namespace ATISPlugin
 
             LoadCodes();
 
-            LoadPresets();
-
             ComboBoxVoice.Items.Clear();
 
             foreach (var voice in Control.SpeechSynth.GetInstalledVoices())
@@ -359,7 +276,7 @@ namespace ATISPlugin
 
                 if (!Initialized) return;
 
-                if (Plugin.ProfileName() == "New Zealand")
+                if (Plugin.ProfileName() == "New Zealand" || Plugin.ProfileName() == "Combined Oceanic")
                 {
                     ButtonZulu.Visible = false;
                 }
