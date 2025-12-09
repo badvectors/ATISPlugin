@@ -22,8 +22,7 @@ namespace ATISPlugin
         public string Name => "ATIS Editor";
         public static string DisplayName => "ATIS Editor";
 
-        public static readonly Version Version = new Version(3, 21);
-        private static readonly string VersionUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Version.json";
+        public static readonly Version Version = new Version(3, 22);
         private static readonly string ZuluUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Zulu.json";
         private static readonly string CodesUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Codes.json";
         private static readonly string PresetsUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Presets.json";
@@ -138,8 +137,6 @@ namespace ATISPlugin
 
             _ = GetPresetOptions();
 
-            //_ = CheckVersion();
-
             MET.Instance.ProductsChanged += METARChanged;
         }
 
@@ -169,21 +166,6 @@ namespace ATISPlugin
             if (ATIS3.ICAO == icao) return ATIS3;
             if (ATIS4.ICAO == icao) return ATIS4;
             return null;
-        }
-
-        private static async Task CheckVersion()
-        {
-            try
-            {
-                var response = await Client.GetStringAsync(VersionUrl);
-
-                var version = JsonConvert.DeserializeObject<Version>(response);
-
-                if (version.Major == Version.Major && version.Minor == Version.Minor) return;
-
-                Errors.Add(new Exception("A new version of the plugin is available."), DisplayName);
-            }
-            catch { }
         }
 
         private static async Task GetCodeBlocks()

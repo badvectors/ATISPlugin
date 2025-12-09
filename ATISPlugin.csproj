@@ -6,6 +6,8 @@
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
 		<BaseOutputPath>C:\Users\ajdun\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins</BaseOutputPath>
+		<AssemblyVersion>3.22</AssemblyVersion>
+		<FileVersion>3.22</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -31,10 +33,5 @@
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="NAudio.WinForms" Version="2.2.1" />
-	</ItemGroup>
-	<ItemGroup>
-	  <None Update="Version.json">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
 	</ItemGroup>
 </Project>
