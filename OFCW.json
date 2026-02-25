@@ -1,10 +1,33 @@
 [
-  {
-    "ICAO": "YSSY",
-    "Text": "Sydney Ground or Approach"
-  },
-  {
-    "ICAO": "YSCB",
-    "Text": "Canberra"
-  }
+  { "ICAO": "YSSY", "Text": "Sydney Ground or Approach" },
+  { "ICAO": "YSCB", "Text": "Canberra" },
+  { "ICAO": "YMEN", "Text": "Essendon Ground, Tower, or Melbourne Approach" },
+  { "ICAO": "YMAV", "Text": "Avalon Tower or Avalon Approach" },
+  { "ICAO": "YBSU", "Text": "Sunshine Coast Ground or Tower" },
+  { "ICAO": "YSTW", "Text": "Tamworth Ground or Tower" },
+
+  { "ICAO": "YMML", "Text": "Melbourne Ground, Tower, or Approach" },
+  { "ICAO": "YPAD", "Text": "Adelaide Ground, Tower, or Approach" },
+  { "ICAO": "YPPH", "Text": "Perth Ground, Tower, or Approach" },
+  { "ICAO": "YBBN", "Text": "Brisbane Ground, Tower, or Approach" },
+  { "ICAO": "YBCG", "Text": "Gold Coast Ground, Tower or Approach" },
+  { "ICAO": "YBCS", "Text": "Cairns Ground, Tower, or Approach" },
+  { "ICAO": "YBRM", "Text": "Broome Tower or Ground" },
+  { "ICAO": "YBRK", "Text": "Rockhampton Ground, Tower, or Approach" },
+
+  { "ICAO": "YBTL", "Text": "Ground or Approach" },
+  { "ICAO": "YSRI", "Text": "" },
+  { "ICAO": "YWLM", "Text": "Williamtown" },
+  { "ICAO": "YPDN", "Text": "Darwin" },
+  { "ICAO": "YMES", "Text": "" },
+  { "ICAO": "YAMB", "Text": "Ground or Approach" },
+  { "ICAO": "YPED", "Text": "" },
+  { "ICAO": "YSNW", "Text": "" },
+  { "ICAO": "YPTN", "Text": "" },
+  { "ICAO": "YBOK", "Text": "" },
+
+  { "ICAO": "YMHB", "Text": "" },
+  { "ICAO": "YMLT", "Text": "" },
+  { "ICAO": "YBMK", "Text": "" },
+  { "ICAO": "YBKS", "Text": "Bankstown Tower or Ground" }
 ]
