@@ -20,5 +20,5 @@
   { "ICAO": "YPDN", "Text": "Darwin" },
   { "ICAO": "YAMB", "Text": "Ground or Approach" },
 
-  { "ICAO": "YBKS", "Text": "Bankstown Tower or Ground" }
+  { "ICAO": "YSBK", "Text": "Bankstown Tower or Ground" }
 ]
