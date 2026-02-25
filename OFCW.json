@@ -1,4 +1,10 @@
 {
-  "YSSY": "Sydney Ground or Approach",
-  "YSCB": "Canberra"
+  {
+    "ICAO": "YSSY",
+    "Text": "Sydney Ground or Approach"
+  },
+  {
+    "ICAO": "YSCB",
+    "Text": "Canberra"
+  }
 }
