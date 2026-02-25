@@ -16,18 +16,9 @@
   { "ICAO": "YBRK", "Text": "Rockhampton Ground, Tower, or Approach" },
 
   { "ICAO": "YBTL", "Text": "Ground or Approach" },
-  { "ICAO": "YSRI", "Text": "" },
   { "ICAO": "YWLM", "Text": "Williamtown" },
   { "ICAO": "YPDN", "Text": "Darwin" },
-  { "ICAO": "YMES", "Text": "" },
   { "ICAO": "YAMB", "Text": "Ground or Approach" },
-  { "ICAO": "YPED", "Text": "" },
-  { "ICAO": "YSNW", "Text": "" },
-  { "ICAO": "YPTN", "Text": "" },
-  { "ICAO": "YBOK", "Text": "" },
 
-  { "ICAO": "YMHB", "Text": "" },
-  { "ICAO": "YMLT", "Text": "" },
-  { "ICAO": "YBMK", "Text": "" },
   { "ICAO": "YBKS", "Text": "Bankstown Tower or Ground" }
 ]
