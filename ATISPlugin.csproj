@@ -6,8 +6,8 @@
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
 		<BaseOutputPath>C:\Users\ajdun\Documents\vatSys Files\Profiles\Mexico\plugins</BaseOutputPath>
-		<AssemblyVersion>3.22</AssemblyVersion>
-		<FileVersion>3.22</FileVersion>
+		<AssemblyVersion>3.23</AssemblyVersion>
+		<FileVersion>3.23</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
