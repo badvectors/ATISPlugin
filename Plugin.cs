@@ -25,6 +25,7 @@ namespace ATISPlugin
         private static readonly string ZuluUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Zulu.json";
         private static readonly string CodesUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Codes.json";
         private static readonly string PresetsUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/Presets.json";
+        private static readonly string OFCWUrl = "https://raw.githubusercontent.com/badvectors/ATISPlugin/master/OFCW.json";
 
         private static readonly HttpClient Client = new HttpClient();
 
@@ -44,12 +45,14 @@ namespace ATISPlugin
             else if (Profile.Name.Contains("Pacific")) return "Pacific";
             else if (Profile.Name.Contains("Combined Oceanic")) return "VATNZ Combined Oceanic";
             else if (Profile.Name.Contains("VATNZ")) return "New Zealand";
+            else if (Profile.Name.Contains("México")) return "Mexico";
             else return string.Empty;
         }
         public static readonly string ManualVoiceName = "Manual Recording";
         public static string DatasetPath => Path.Combine(Helpers.GetFilesFolder(), "Profiles", ProfileName());
         public static ATIS ATISData { get; set; }
         public static List<ZuluInfo> ZuluInfo { get; set; } = new List<ZuluInfo>();
+        public static List<OFCWInfo> OFCWInfo { get; set; } = new List<OFCWInfo>();
         public static List<CodeBlock> CodeBlocks { get; set; } = new List<CodeBlock>();
         public static List<PresetOption> PresetOptions { get; set; } = new List<PresetOption>();
 
@@ -131,6 +134,8 @@ namespace ATISPlugin
             }
 
             _ = GetZuluInfo();
+
+            _ = GetOFCWInfo();
 
             _ = GetCodeBlocks();
 
@@ -219,6 +224,25 @@ namespace ATISPlugin
                 }
             }
             catch (Exception ex) 
+            {
+                Errors.Add(new Exception(ex.Message), DisplayName);
+            }
+        }
+
+        private static async Task GetOFCWInfo()
+        {
+            try
+            {
+                var response = await Client.GetStringAsync(OFCWUrl);
+
+                var ofcwInfo = JsonConvert.DeserializeObject<OFCWInfo[]>(response);
+
+                foreach (var info in ofcwInfo)
+                {
+                    OFCWInfo.Add(info);
+                }
+            }
+            catch (Exception ex)
             {
                 Errors.Add(new Exception(ex.Message), DisplayName);
             }

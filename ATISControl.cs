@@ -189,6 +189,15 @@ namespace ATISPlugin
                 VisPoint = coordinates;
                 IsZulu = false;
 
+                var ofcwDefault = Plugin.OFCWInfo.FirstOrDefault(x => x.ICAO == icao);
+                
+                var ofcwLine = Lines.FirstOrDefault(x => x.Name == "OFCW_NOTIFY");
+
+                if (ofcwLine != null)
+                {
+                   ofcwLine.Value = ofcwDefault == null ? $"{ICAO} {ofcwLine.Value}" : ofcwDefault.Text;
+                }
+
                 Network.ConnectATIS(Index, Callsign, ICAO, FSDFrequency, VisPoint);
             }
             catch (Exception ex)
@@ -636,7 +645,7 @@ namespace ATISPlugin
 
                     if (line.Name == "OFCW_NOTIFY")
                     {
-                        speech = DoReplacements(speech, $"On first contact with {ICAO} {line.Value}, notify receipt of information {ID}", line.NumbersGrouped);
+                        speech = DoReplacements(speech, $"On first contact with {line.Value}, notify receipt of information {ID}", line.NumbersGrouped);
                     }
                     else
                     {

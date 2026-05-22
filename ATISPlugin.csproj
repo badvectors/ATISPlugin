@@ -5,7 +5,7 @@
 		<AssemblyName>ATISPlugin</AssemblyName>
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
-		<BaseOutputPath>C:\Users\ajdun\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins</BaseOutputPath>
+		<BaseOutputPath>C:\Users\ajdun\Documents\vatSys Files\Profiles\Mexico\plugins</BaseOutputPath>
 		<AssemblyVersion>3.22</AssemblyVersion>
 		<FileVersion>3.22</FileVersion>
 	</PropertyGroup>
@@ -33,5 +33,18 @@
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="NAudio.WinForms" Version="2.2.1" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Compile Update="Properties\Settings.Designer.cs">
+	    <DesignTimeSharedInput>True</DesignTimeSharedInput>
+	    <AutoGen>True</AutoGen>
+	    <DependentUpon>Settings.settings</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+	<ItemGroup>
+	  <None Update="Properties\Settings.settings">
+	    <Generator>SettingsSingleFileGenerator</Generator>
+	    <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+	  </None>
 	</ItemGroup>
 </Project>
