@@ -184,7 +184,7 @@
   {
     "ICAO": "YSCN",
     "Text": "TESTING",
-    "StartUtc": "2400",
+    "StartUtc": "0000",
     "EndUtc": "0159"
   }
 ]
