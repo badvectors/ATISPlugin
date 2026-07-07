@@ -162,8 +162,8 @@
   {
     "ICAO": "YSCN",
     "Text": "CAMDEN TOWER CLOSED. CONTROL ZONE REVERTS TO CLASS GOLF. ADVISORY FREQUENCY 122.8 REFER TO AIP FOR NOISE ABATEMENT PROCEDURES. IFR AIRCRAFT ONLY MUST CONTACT {STATION} {FREQ} WHEN TAXIING. CAMDEN TERMINAL INFORMATION ZULU",
-    "StartUtc": "0240",
-    "EndUtc": "2359"
+    "StartUtc": "0700",
+    "EndUtc": "0759"
   },
   {
     "ICAO": "YSNW",
@@ -184,7 +184,7 @@
   {
     "ICAO": "YSCN",
     "Text": "TESTING",
-    "StartUtc": "0000",
-    "EndUtc": "0241"
+    "StartUtc": "0800",
+    "EndUtc": "0659"
   }
 ]
