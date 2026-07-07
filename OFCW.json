@@ -1,5 +1,6 @@
 [
   { "ICAO": "YSSY", "Text": "Sydney Ground or Approach" },
+  { "ICAO": "YSWS", "Text": "Walton Ground, Tower, or Approach" },
   { "ICAO": "YSCB", "Text": "Canberra" },
   { "ICAO": "YMEN", "Text": "Essendon Ground, Tower, or Melbourne Approach" },
   { "ICAO": "YMAV", "Text": "Avalon Tower or Avalon Approach" },
@@ -11,6 +12,7 @@
   { "ICAO": "YPPH", "Text": "Perth Ground, Tower, or Approach" },
   { "ICAO": "YBBN", "Text": "Brisbane Ground, Tower, or Approach" },
   { "ICAO": "YBCG", "Text": "Gold Coast Ground, Tower or Approach" },
+  { "ICAO": "YBNA", "Text": "Ballina Tower, or Approach" },
   { "ICAO": "YBCS", "Text": "Cairns Ground, Tower, or Approach" },
   { "ICAO": "YBRM", "Text": "Broome Tower or Ground" },
   { "ICAO": "YBRK", "Text": "Rocky Ground, Tower, or Approach" },
@@ -39,15 +41,15 @@
   { "ICAO": "YPWR", "Text": "Woomera Tower" },
   
   { "ICAO": "PKWA", "Text": "Kwajalein Ground, or Tower" },
-  { "ICAO": "NWWM", "Text": "Magenta Tower, or Approach" },
+  { "ICAO": "NWWM", "Text": "Magenta Tower, or Noumea Approach" },
   { "ICAO": "AYNZ", "Text": "Nadzab Tower, or Approach" },
   { "ICAO": "AYGA", "Text": "Goroka Tower" },
   { "ICAO": "AYMD", "Text": "Madang Tower" },
   { "ICAO": "AYMH", "Text": "Hagen Tower" },
   { "ICAO": "AYTK", "Text": "Tokua Tower" },
-  { "ICAO": "NVVV", "Text": "Port Vila Tower, or Approach" },
+  { "ICAO": "NVVV", "Text": "Port Vila Tower" },
 
-    { "ICAO": "MMCL", "Text": "Culiacan Tower or Approach" },
+  { "ICAO": "MMCL", "Text": "Culiacan Tower or Approach" },
   { "ICAO": "MMCN", "Text": "Obregon Tower" },
   { "ICAO": "MMDO", "Text": "Durango Tower" },
   { "ICAO": "MMHO", "Text": "Hermosillo Tower or Approach" },
