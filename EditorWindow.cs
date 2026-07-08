@@ -689,7 +689,7 @@ namespace ATISPlugin
 
             LabelMETAR.Text = Control.METARRaw;
 
-            if (!Control.IsZulu && Control.HasUpdates && ID != Control.ID)
+            if (Control.HasUpdates && ID != Control.ID)
             {
                 LabelATIS.ForeColor = Colours.GetColour(Colours.Identities.Warning);
             }
@@ -852,6 +852,15 @@ namespace ATISPlugin
                         break;
                     case 13:
                         if (!string.IsNullOrWhiteSpace(saveLine.Value)) TextBoxZulu.Text = saveLine.Value;
+                        else if (suggestedLine != null)
+                        {
+                            TextBoxZulu.Text = suggestedLine.Value;
+                            TextBoxZulu.ForeColor = Colours.GetColour(Colours.Identities.Warning);
+                        }
+                        else
+                        {
+                            TextBoxZulu.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
+                        }
                         break;
                     default:
                         break;
@@ -1428,11 +1437,13 @@ namespace ATISPlugin
 
         private void GenerateZulu()
         {
-            var zuluInfo = Plugin.ZuluInfo.FirstOrDefault(x => x.ICAO == ICAO);
-
             var zuluLine = Control.Lines.FirstOrDefault(x => x.Name == "ZULU");
 
-            if (zuluInfo == null || zuluLine == null) return;
+            if (zuluLine == null) return;
+
+            var zuluInfo = Zulu.GetInfo(ICAO);
+
+            if (zuluInfo == null) return;
 
             var atis = zuluInfo.Text;
 

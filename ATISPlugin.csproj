@@ -5,9 +5,9 @@
 		<AssemblyName>ATISPlugin</AssemblyName>
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
-		<BaseOutputPath>C:\Users\ajdun\Documents\vatSys Files\Profiles\Mexico\plugins</BaseOutputPath>
-		<AssemblyVersion>3.23</AssemblyVersion>
-		<FileVersion>3.23</FileVersion>
+		<BaseOutputPath>C:\Users\ajdun\Documents\vatSys Files\Profiles\Australia\Plugins</BaseOutputPath>
+		<AssemblyVersion>3.24</AssemblyVersion>
+		<FileVersion>3.24</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
