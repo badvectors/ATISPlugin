@@ -31,7 +31,7 @@ namespace ATISPlugin
 
         public bool Broadcasting { get; set; }
         public bool Listening { get; set; }
-        public bool CanListen => !string.IsNullOrWhiteSpace(FileName);
+        public bool CanListen => !string.IsNullOrWhiteSpace(FileName) && !Recording;
         public string FileName { get; set; }
         public DateTime DateTimeUtc { get; set; }
         public bool TimeCheck { get; set; } = true;
@@ -244,6 +244,8 @@ namespace ATISPlugin
 
             SuggestedLines.Clear();
 
+            CleanupRecording();
+
             SoundPlayer.Stop();
 
             StatusChanged?.Invoke(this, null);
@@ -307,9 +309,18 @@ namespace ATISPlugin
 
             if (!File.Exists(file)) return;
 
-            SoundPlayer.SoundLocation = file;
+            try
+            {
+                SoundPlayer.SoundLocation = file;
 
-            SoundPlayer.Play();
+                SoundPlayer.Play();
+            }
+            catch (Exception ex)
+            {
+                Listening = false;
+
+                Errors.Add(new Exception($"Could not play ATIS: {ex.Message}"), Plugin.DisplayName);
+            }
         }
 
         public void ListenStop()
@@ -329,6 +340,8 @@ namespace ATISPlugin
 
                 if (VoiceName == Plugin.ManualVoiceName)
                 {
+                    if (Recording) throw new Exception("Recording still in progress.");
+
                     var directory = Path.Combine(Plugin.DatasetPath, "Temp");
 
                     var file = Path.Combine(directory, FileName);
@@ -711,67 +724,136 @@ namespace ATISPlugin
             return CompleteStream.Length / WaveForm.AverageBytesPerSecond * 1000.0;
         }
 
-        private WaveFileWriter writer; 
+        private WaveFileWriter writer;
         private WaveInEvent waveIn;
+        private bool playOnRecordingStopped;
 
         public void StartRecording()
         {
-            FileName = $"{ICAO}_{ID}_{DateTime.UtcNow:HHmmss}.wav";
-
-            var directory = Path.Combine(Plugin.DatasetPath, "Temp");
-
-            var file = Path.Combine(directory, FileName);
-
-            if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
-
-            waveIn = new WaveInEvent
+            try
             {
-                WaveFormat = WaveForm
-            };
+                CleanupRecording();
 
-            writer = new WaveFileWriter(file, waveIn.WaveFormat);
+                FileName = $"{ICAO}_{ID}_{DateTime.UtcNow:HHmmss}.wav";
 
-            waveIn.StartRecording();
+                var directory = Path.Combine(Plugin.DatasetPath, "Temp");
 
-            waveIn.DataAvailable += WaveIn_DataAvailable;
-            waveIn.RecordingStopped += WaveIn_RecordingStopped;
+                var file = Path.Combine(directory, FileName);
 
-            Recording = true;
+                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+
+                playOnRecordingStopped = false;
+
+                waveIn = new WaveInEvent
+                {
+                    WaveFormat = WaveForm
+                };
+
+                writer = new WaveFileWriter(file, waveIn.WaveFormat);
+
+                waveIn.DataAvailable += WaveIn_DataAvailable;
+                waveIn.RecordingStopped += WaveIn_RecordingStopped;
+
+                waveIn.StartRecording();
+
+                Recording = true;
+            }
+            catch (Exception ex)
+            {
+                CleanupRecording();
+
+                Errors.Add(new Exception($"Could not start recording: {ex.Message}"), Plugin.DisplayName);
+            }
+        }
+
+        private void CleanupRecording()
+        {
+            Recording = false;
+
+            var oldWaveIn = waveIn;
+            waveIn = null;
+
+            if (oldWaveIn != null)
+            {
+                oldWaveIn.DataAvailable -= WaveIn_DataAvailable;
+                oldWaveIn.RecordingStopped -= WaveIn_RecordingStopped;
+
+                try { oldWaveIn.Dispose(); } catch { }
+            }
+
+            var oldWriter = writer;
+            writer = null;
+
+            if (oldWriter != null)
+            {
+                try { oldWriter.Dispose(); } catch { }
+            }
         }
 
         private void WaveIn_RecordingStopped(object sender, StoppedEventArgs e)
         {
-            if (waveIn != null)
+            try
             {
-                waveIn.Dispose();
-                waveIn = null;
-            }
+                CleanupRecording();
 
-            if (writer != null)
+                if (e.Exception != null)
+                {
+                    Errors.Add(new Exception($"Recording stopped unexpectedly: {e.Exception.Message}"), Plugin.DisplayName);
+
+                    return;
+                }
+
+                if (playOnRecordingStopped)
+                {
+                    playOnRecordingStopped = false;
+
+                    ListenStart();
+                }
+            }
+            catch (Exception ex)
             {
-                writer.Dispose();
-                writer = null;
+                Errors.Add(new Exception($"Could not finish recording: {ex.Message}"), Plugin.DisplayName);
             }
         }
 
         private void WaveIn_DataAvailable(object sender, WaveInEventArgs e)
         {
-            if (writer == null) return;
+            // Raised on NAudio's recording thread; an unhandled exception here
+            // would terminate the process, and the writer can be disposed by
+            // the UI thread between the null check and the write.
+            try
+            {
+                var currentWriter = writer;
 
-            writer.Write(e.Buffer, 0, e.BytesRecorded);
+                if (currentWriter == null || !ReferenceEquals(sender, waveIn)) return;
 
-            writer.Flush();
+                currentWriter.Write(e.Buffer, 0, e.BytesRecorded);
+
+                currentWriter.Flush();
+            }
+            catch { }
         }
 
         public void StopRecording()
         {
-            if (writer == null) return;
+            var currentWaveIn = waveIn;
 
-            waveIn.StopRecording();
+            if (currentWaveIn == null) return;
 
             Recording = false;
 
-            ListenStart();
+            playOnRecordingStopped = true;
+
+            try
+            {
+                currentWaveIn.StopRecording();
+            }
+            catch (Exception ex)
+            {
+                CleanupRecording();
+
+                Errors.Add(new Exception($"Could not stop recording: {ex.Message}"), Plugin.DisplayName);
+            }
         }
 
         private void GenerateAutoFile()
