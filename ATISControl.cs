@@ -48,7 +48,7 @@ namespace ATISPlugin
         private SpeechAudioFormatInfo SpeechFormat { get; set; }
         public string METARRaw { get; set; }
         public string METARLastRaw { get; set; }
-        private WaveFormat WaveForm { get; set; } = new WaveFormat(44100, 1);
+        private WaveFormat WaveForm { get; set; } = new WaveFormat(48000, 1);
         public PromptRate PromptRate { get; set; } = PromptRate.Medium;
         public InstalledVoice InstalledVoice => SpeechSynth.GetInstalledVoices().FirstOrDefault(x => x.VoiceInfo.Name == VoiceName);
         public string VoiceName { get; set; }
@@ -346,7 +346,15 @@ namespace ATISPlugin
 
                     var file = Path.Combine(directory, FileName);
 
-                    var audio = File.ReadAllBytes(file);
+                    // AFV expects raw PCM samples, so strip the WAV container.
+                    byte[] audio;
+
+                    using (var reader = new WaveFileReader(file))
+                    using (var ms = new MemoryStream())
+                    {
+                        reader.CopyTo(ms);
+                        audio = ms.ToArray();
+                    }
 
                     var atisAudio = new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, TimeSpan.Zero);
 
