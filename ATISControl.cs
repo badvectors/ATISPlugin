@@ -799,11 +799,8 @@ namespace ATISPlugin
                 if (e.Exception != null)
                 {
                     Errors.Add(new Exception($"Recording stopped unexpectedly: {e.Exception.Message}"), Plugin.DisplayName);
-
-                    return;
                 }
-
-                if (playOnRecordingStopped)
+                else if (playOnRecordingStopped)
                 {
                     playOnRecordingStopped = false;
 
@@ -814,6 +811,8 @@ namespace ATISPlugin
             {
                 Errors.Add(new Exception($"Could not finish recording: {ex.Message}"), Plugin.DisplayName);
             }
+
+            StatusChanged?.Invoke(this, null);
         }
 
         private void WaveIn_DataAvailable(object sender, WaveInEventArgs e)
