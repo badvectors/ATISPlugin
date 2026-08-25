@@ -105,23 +105,6 @@ namespace ATISPlugin
                     return;
                 }
 
-                var directory = Path.Combine(DatasetPath, "Temp");
-
-                if (!Directory.Exists(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-
-                var toDelete = Directory
-                    .EnumerateFiles(directory, "*.*", SearchOption.TopDirectoryOnly)
-                    .Where(s => Path.GetExtension(s).TrimStart('.').ToLowerInvariant() == "wav");
-
-                foreach (var file in toDelete)
-                {
-                    if (file.Contains("AIS.wav")) continue;
-                    File.Delete(file);
-                }
-
                 ATIS1 = new ATISControl(1);
                 ATIS2 = new ATISControl(2);
                 ATIS3 = new ATISControl(3);

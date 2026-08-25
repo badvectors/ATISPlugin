@@ -1,4 +1,5 @@
-﻿using NAudio.Wave;
+﻿using NAudio.Utils;
+using NAudio.Wave;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -31,8 +32,8 @@ namespace ATISPlugin
 
         public bool Broadcasting { get; set; }
         public bool Listening { get; set; }
-        public bool CanListen => !string.IsNullOrWhiteSpace(FileName) && !Recording;
-        public string FileName { get; set; }
+        public bool CanListen => AudioWav != null && !Recording;
+        public byte[] AudioWav { get; private set; }
         public DateTime DateTimeUtc { get; set; }
         public bool TimeCheck { get; set; } = true;
         public List<ATISLine> Lines { get; set; } = new List<ATISLine>();
@@ -246,6 +247,10 @@ namespace ATISPlugin
 
             CleanupRecording();
 
+            DiscardRecordingStream();
+
+            AudioWav = null;
+
             SoundPlayer.Stop();
 
             StatusChanged?.Invoke(this, null);
@@ -287,7 +292,7 @@ namespace ATISPlugin
 
                 ATISDuration = SetContent(ATISSpoken, ref ATISStream);
 
-                GenerateAutoFile();
+                GenerateAutoAudio();
             }
             else
             {
@@ -303,15 +308,9 @@ namespace ATISPlugin
 
             Listening = true;
 
-            var directory = Path.Combine(Plugin.DatasetPath, "Temp");
-
-            var file = Path.Combine(directory, FileName);
-
-            if (!File.Exists(file)) return;
-
             try
             {
-                SoundPlayer.SoundLocation = file;
+                SoundPlayer.Stream = new MemoryStream(AudioWav);
 
                 SoundPlayer.Play();
             }
@@ -342,14 +341,12 @@ namespace ATISPlugin
                 {
                     if (Recording) throw new Exception("Recording still in progress.");
 
-                    var directory = Path.Combine(Plugin.DatasetPath, "Temp");
-
-                    var file = Path.Combine(directory, FileName);
+                    if (AudioWav == null) throw new Exception("No recording available.");
 
                     // AFV expects raw PCM samples, so strip the WAV container.
                     byte[] audio;
 
-                    using (var reader = new WaveFileReader(file))
+                    using (var reader = new WaveFileReader(new MemoryStream(AudioWav)))
                     using (var ms = new MemoryStream())
                     {
                         reader.CopyTo(ms);
@@ -734,6 +731,7 @@ namespace ATISPlugin
 
         private WaveFileWriter writer;
         private WaveInEvent waveIn;
+        private MemoryStream recordingStream;
         private bool playOnRecordingStopped;
 
         public void StartRecording()
@@ -742,13 +740,9 @@ namespace ATISPlugin
             {
                 CleanupRecording();
 
-                FileName = $"{ICAO}_{ID}_{DateTime.UtcNow:HHmmss}.wav";
+                DiscardRecordingStream();
 
-                var directory = Path.Combine(Plugin.DatasetPath, "Temp");
-
-                var file = Path.Combine(directory, FileName);
-
-                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+                recordingStream = new MemoryStream();
 
                 playOnRecordingStopped = false;
 
@@ -757,7 +751,7 @@ namespace ATISPlugin
                     WaveFormat = WaveForm
                 };
 
-                writer = new WaveFileWriter(file, waveIn.WaveFormat);
+                writer = new WaveFileWriter(new IgnoreDisposeStream(recordingStream), waveIn.WaveFormat);
 
                 waveIn.DataAvailable += WaveIn_DataAvailable;
                 waveIn.RecordingStopped += WaveIn_RecordingStopped;
@@ -770,8 +764,16 @@ namespace ATISPlugin
             {
                 CleanupRecording();
 
+                DiscardRecordingStream();
+
                 Errors.Add(new Exception($"Could not start recording: {ex.Message}"), Plugin.DisplayName);
             }
+        }
+
+        private void DiscardRecordingStream()
+        {
+            recordingStream?.Dispose();
+            recordingStream = null;
         }
 
         private void CleanupRecording()
@@ -803,6 +805,11 @@ namespace ATISPlugin
             try
             {
                 CleanupRecording();
+
+                // The writer is disposed now, so the stream holds a complete WAV.
+                if (e.Exception == null && recordingStream != null) AudioWav = recordingStream.ToArray();
+
+                DiscardRecordingStream();
 
                 if (e.Exception != null)
                 {
@@ -863,21 +870,20 @@ namespace ATISPlugin
             }
         }
 
-        private void GenerateAutoFile()
+        private void GenerateAutoAudio()
         {
             try
             {
-                FileName = $"{ICAO}_{ID}_{DateTime.UtcNow:HHmmss}.wav";
+                using (var ms = new MemoryStream())
+                {
+                    using (var wavWriter = new WaveFileWriter(new IgnoreDisposeStream(ms), WaveForm))
+                    {
+                        ATISStream.Seek(0, SeekOrigin.Begin);
+                        ATISStream.CopyTo(wavWriter);
+                    }
 
-                var directory = Path.Combine(Plugin.DatasetPath, "Temp");
-
-                var file = Path.Combine(directory, FileName);
-
-                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
-
-                SpeechSynth.SetOutputToWaveFile(file, SpeechFormat);
-                SpeechSynth.Speak(ATISSpoken);
-                SpeechSynth.SetOutputToNull();
+                    AudioWav = ms.ToArray();
+                }
 
                 ListenStart();
             }
