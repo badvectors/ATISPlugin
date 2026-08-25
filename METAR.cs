@@ -81,7 +81,7 @@ namespace ATISPlugin
 
                     var direction = wind.Substring(0, 3);
 
-                    var speed = wind.Substring(3, 2);
+                    var speed = wind.Substring(3, 2).TrimStart('0');
 
                     Wind = $"{direction}/{speed}";
 
