@@ -1472,7 +1472,7 @@ namespace ATISPlugin
 
             if (wind == "CALM") return "CALM";
 
-            if (wind == "VRB") return "VARIABLE";
+            if (wind == "LIGHT AND VRB") return "VARIABLE";
 
             var split = wind.Split('/');
 

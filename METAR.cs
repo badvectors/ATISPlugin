@@ -74,7 +74,7 @@ namespace ATISPlugin
 
                     if (wind.EndsWith("01") || wind.EndsWith("02") || wind.EndsWith("03"))
                     {
-                        Wind = "VRB";
+                        Wind = "LIGHT AND VRB";
 
                         continue;
                     }
