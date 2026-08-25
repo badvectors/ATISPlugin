@@ -38,18 +38,33 @@ namespace ATISPlugin
 
         private static EditorWindow Editor;
 
-        public static string ProfileName()
-        {
-            if (Profile.Name.Contains("Australia")) return "Australia";
-            else if (Profile.Name.Contains("South Pacific")) return "South Pacific";
-            else if (Profile.Name.Contains("Pacific")) return "Pacific";
-            else if (Profile.Name.Contains("Combined Oceanic")) return "VATNZ Combined Oceanic";
-            else if (Profile.Name.Contains("VATNZ")) return "New Zealand";
-            else if (Profile.Name.Contains("México")) return "Mexico";
-            else return string.Empty;
-        }
         public static readonly string ManualVoiceName = "Manual Recording";
-        public static string DatasetPath => Path.Combine(Helpers.GetFilesFolder(), "Profiles", ProfileName());
+        public static string DatasetPath => VatSysDatasetPath;
+
+        private static string vatSysDatasetPath;
+        private static bool vatSysDatasetPathChecked;
+
+        private static string VatSysDatasetPath
+        {
+            get
+            {
+                if (vatSysDatasetPathChecked) return vatSysDatasetPath;
+
+                vatSysDatasetPathChecked = true;
+
+                try
+                {
+                    var settingsType = typeof(vatsys.ATIS).Assembly.GetType("vatsys.Properties.Settings");
+                    var settings = settingsType?.GetProperty("Default")?.GetValue(null);
+                    var path = settings == null ? null : settingsType.GetProperty("DatasetPath")?.GetValue(settings) as string;
+
+                    if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path)) vatSysDatasetPath = path;
+                }
+                catch { }
+
+                return vatSysDatasetPath;
+            }
+        }
         public static ATIS ATISData { get; set; }
         public static List<ZuluInfo> ZuluInfo { get; set; } = new List<ZuluInfo>();
         public static List<OFCWInfo> OFCWInfo { get; set; } = new List<OFCWInfo>();
@@ -64,7 +79,8 @@ namespace ATISPlugin
 
         public Plugin()
         {
-            if (ProfileName() == string.Empty) return;
+            // Stay inactive on profiles without an ATIS.xml in their dataset.
+            if (!File.Exists(Path.Combine(DatasetPath, "ATIS.xml"))) return;
 
             vatsys.ATIS.Disable();
 
@@ -80,12 +96,6 @@ namespace ATISPlugin
                 ATISMenu = new CustomToolStripMenuItem(CustomToolStripMenuItemWindowType.Main, CustomToolStripMenuItemCategory.Windows, new ToolStripMenuItem(DisplayName));
                 ATISMenu.Item.Click += ATISMenu_Click;
                 MMI.AddCustomMenuItem(ATISMenu);
-
-                if (!Directory.Exists(DatasetPath))
-                {
-                    Errors.Add(new Exception("Could not find profile."), DisplayName);
-                    return;
-                }
 
                 GetData();
 

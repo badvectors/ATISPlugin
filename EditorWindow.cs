@@ -276,7 +276,7 @@ namespace ATISPlugin
 
                 if (!Initialized) return;
 
-                if (Plugin.ProfileName() == "New Zealand" || Plugin.ProfileName() == "Combined Oceanic")
+                if (Profile.Name.Contains("VATNZ"))
                 {
                     ButtonZulu.Visible = false;
                 }
