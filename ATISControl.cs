@@ -169,6 +169,13 @@ namespace ATISPlugin
 
             if (Network.GetATISConnected(Index)) return;
 
+            if (Number != 1 && Plugin.SingleATISOnly)
+            {
+                Errors.Add(new Exception("Only one ATIS is allowed for this position."), Plugin.DisplayName);
+
+                return;
+            }
+
             try
             {
                 var exists = Network.GetOnlineATCs.FirstOrDefault(x => x.Callsign == $"{icao}_ATIS");

@@ -276,6 +276,13 @@ namespace ATISPlugin
 
                 if (!Initialized) return;
 
+                if (Plugin.SingleATISOnly && Number != 1)
+                {
+                    Change(1);
+
+                    return;
+                }
+
                 if (Profile.Name.Contains("VATNZ"))
                 {
                     ButtonZulu.Visible = false;
@@ -345,6 +352,12 @@ namespace ATISPlugin
 
         private void RefreshForm_TopButtons()
         {
+            var multipleAllowed = !Plugin.SingleATISOnly;
+
+            ButtonATIS2.Enabled = multipleAllowed;
+            ButtonATIS3.Enabled = multipleAllowed;
+            ButtonATIS4.Enabled = multipleAllowed;
+
             if (Plugin.ATIS1.ICAO != null)
             {
                 ButtonATIS1.Text = Plugin.ATIS1.ICAO;

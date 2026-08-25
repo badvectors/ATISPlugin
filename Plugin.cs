@@ -65,6 +65,21 @@ namespace ATISPlugin
                 return vatSysDatasetPath;
             }
         }
+        // Tower and below may only operate a single ATIS.
+        public static bool SingleATISOnly
+        {
+            get
+            {
+                if (!Network.IsConnected) return false;
+
+                var callsign = Network.Callsign;
+
+                if (string.IsNullOrWhiteSpace(callsign)) return false;
+
+                return callsign.EndsWith("_DEL") || callsign.EndsWith("_GND") || callsign.EndsWith("_TWR");
+            }
+        }
+
         public static ATIS ATISData { get; set; }
         public static List<ZuluInfo> ZuluInfo { get; set; } = new List<ZuluInfo>();
         public static List<OFCWInfo> OFCWInfo { get; set; } = new List<OFCWInfo>();
@@ -394,7 +409,13 @@ namespace ATISPlugin
 
             try
             {
-                MMI.InvokeOnGUI(delegate () { Editor.Show(mainForm); });
+                MMI.InvokeOnGUI(delegate ()
+                {
+                    Editor.Show(mainForm);
+
+                    // Connection state may have changed while the window was closed.
+                    Editor.RefreshEvent?.Invoke(null, null);
+                });
             }
             catch { }
         }
