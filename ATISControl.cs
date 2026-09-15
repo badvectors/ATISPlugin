@@ -37,11 +37,7 @@ namespace ATISPlugin
         public DateTime DateTimeUtc { get; set; }
         public bool TimeCheck { get; set; } = true;
         public List<ATISLine> Lines { get; set; } = new List<ATISLine>();
-        private double ATISDuration { get; set; }
         private MemoryStream ATISStream;
-        private MemoryStream TimeCheckStream;
-        private double CompleteATISDuration { get; set; }
-        private MemoryStream CompleteStream;
         public List<ATISLine> SuggestedLines { get; set; } = new List<ATISLine>();
         public bool HasUpdates => SuggestedLines.Any();
         public SpeechSynthesizer SpeechSynth { get; set; }
@@ -160,7 +156,16 @@ namespace ATISPlugin
         {
             if (!Broadcasting) return;
 
-            BroadcastStart();
+            try
+            {
+                BroadcastAudio();
+            }
+            catch (Exception ex)
+            {
+                Errors.Add(new Exception($"Could not broadcast ATIS: {ex.Message}"), Plugin.DisplayName);
+
+                Broadcasting = false;
+            }
         }
 
         public async Task Create(string icao, string frequency, Coordinate coordinates)
@@ -297,7 +302,7 @@ namespace ATISPlugin
 
                 ATISStream = new MemoryStream();
 
-                ATISDuration = SetContent(ATISSpoken, ref ATISStream);
+                SetContent(ATISSpoken, ref ATISStream);
 
                 GenerateAutoAudio();
             }
@@ -344,44 +349,7 @@ namespace ATISPlugin
 
                 Network.UpdateATIS(Index, ID, GetInfo());
 
-                if (VoiceName == Plugin.ManualVoiceName)
-                {
-                    if (Recording) throw new Exception("Recording still in progress.");
-
-                    if (AudioWav == null) throw new Exception("No recording available.");
-
-                    // AFV expects raw PCM samples, so strip the WAV container.
-                    byte[] audio;
-
-                    using (var reader = new WaveFileReader(new MemoryStream(AudioWav)))
-                    using (var ms = new MemoryStream())
-                    {
-                        reader.CopyTo(ms);
-                        audio = ms.ToArray();
-                    }
-
-                    var atisAudio = new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, TimeSpan.Zero);
-
-                    Plugin.ToBroadcast.Add(atisAudio);
-                }
-                else
-                {
-                    CompleteATISDuration = GenerateCompleteStream();
-
-                    var audio = ReadMemoryStream(CompleteStream);
-
-                    var duration = TimeCheck ? TimeSpan.FromMilliseconds(CompleteATISDuration + 60000.0) : TimeSpan.Zero;
-
-                    var atisAudio = new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, duration);
-
-                    Plugin.ToBroadcast.Add(atisAudio);
-
-                    if (!TimeCheck) return;
-
-                    LoopTimer.Interval = CompleteATISDuration;
-
-                    LoopTimer.Start();
-                }
+                BroadcastAudio();
             }
             catch (Exception ex)
             {
@@ -389,8 +357,75 @@ namespace ATISPlugin
 
                 Broadcasting = false;
             }
+        }
 
+        private static readonly TimeSpan LoopGap = TimeSpan.FromSeconds(3.0);
 
+        private void BroadcastAudio()
+        {
+            byte[] atisPcm;
+
+            if (VoiceName == Plugin.ManualVoiceName)
+            {
+                if (Recording) throw new Exception("Recording still in progress.");
+
+                if (AudioWav == null) throw new Exception("No recording available.");
+
+                // AFV expects raw PCM samples, so strip the WAV container.
+                using (var reader = new WaveFileReader(new MemoryStream(AudioWav)))
+                using (var ms = new MemoryStream())
+                {
+                    reader.CopyTo(ms);
+                    atisPcm = ms.ToArray();
+                }
+            }
+            else
+            {
+                if (ATISStream == null) throw new Exception("No ATIS audio available.");
+
+                atisPcm = ReadMemoryStream(ATISStream);
+            }
+
+            var atisDuration = PcmDuration(atisPcm);
+
+            var timeCheckPcm = TimeCheck ? GenerateTimeCheckPcm(atisDuration) : null;
+
+            byte[] audio;
+
+            if (timeCheckPcm != null)
+            {
+                audio = new byte[atisPcm.Length + timeCheckPcm.Length];
+                Buffer.BlockCopy(atisPcm, 0, audio, 0, atisPcm.Length);
+                Buffer.BlockCopy(timeCheckPcm, 0, audio, atisPcm.Length, timeCheckPcm.Length);
+            }
+            else
+            {
+                audio = atisPcm;
+            }
+
+            var completeDuration = PcmDuration(audio);
+
+            var interval = completeDuration + LoopGap;
+
+            if (timeCheckPcm != null)
+            {
+                LoopTimer.Interval = completeDuration.TotalMilliseconds + 1000.0;
+
+                LoopTimer.Start();
+            }
+            else
+            {
+                LoopTimer.Stop();
+            }
+
+            Plugin.ToBroadcast.Add(new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, interval));
+
+            Plugin.BroadcastNow();
+        }
+
+        private TimeSpan PcmDuration(byte[] pcm)
+        {
+            return TimeSpan.FromSeconds((double)pcm.Length / WaveForm.AverageBytesPerSecond);
         }
 
         public static byte[] ReadMemoryStream(Stream input)
@@ -407,6 +442,8 @@ namespace ATISPlugin
         public async Task BroadcastStop()
         {
             Broadcasting = false;
+
+            LoopTimer.Stop();
 
             try
             {
@@ -632,7 +669,7 @@ namespace ATISPlugin
             SpeechSynth.Speak(speech);
             SpeechSynth.SetOutputToNull();
             stream.Seek(0L, SeekOrigin.Begin);
-            return stream.Length / WaveForm.AverageBytesPerSecond * 1000.0;
+            return (double)stream.Length / WaveForm.AverageBytesPerSecond * 1000.0;
         }
 
         private void GenerateSpoken()
@@ -688,52 +725,45 @@ namespace ATISPlugin
             ATISSpoken = speech;
         }
 
-        private void GenerateTimeCheck()
+        private byte[] GenerateTimeCheckPcm(TimeSpan atisDuration)
         {
-            if (InstalledVoice == null) return;
+            // The manual voice has no TTS voice of its own, so the timecheck
+            // falls back to the first installed voice.
+            var voice = InstalledVoice ?? SpeechSynth.GetInstalledVoices().FirstOrDefault();
+
+            if (voice == null) return null;
 
             PromptBuilder speech = new PromptBuilder(CultureInfo);
-            speech.StartVoice(InstalledVoice.VoiceInfo.Name);
+            speech.StartVoice(voice.VoiceInfo.Name);
             speech.StartStyle(new PromptStyle(PromptRate));
             speech.AppendBreak(TimeSpan.FromSeconds(3.0));
-            speech.AppendText(CreateTimecheckText(TimeSpan.FromMilliseconds(ATISDuration) + TimeSpan.FromSeconds(7.0)));
+            speech.AppendText(CreateTimecheckText(atisDuration + TimeSpan.FromSeconds(7.0)));
             speech.EndStyle();
             speech.EndVoice();
-            SetTimeCheckContent(speech);
+
+            var stream = new MemoryStream();
+            SetContent(speech, ref stream);
+            return stream.ToArray();
         }
 
         private string CreateTimecheckText(TimeSpan offset)
         {
-            DateTime nearest = (DateTime.UtcNow + offset).RoundToNearest(TimeSpan.FromSeconds(30.0));
+            // Speak the time at which the timecheck will actually be heard,
+            // rounded up or down to the nearest 30 seconds.
+            DateTime nearest = RoundToNearestHalfMinute(DateTime.UtcNow + offset);
             string timecheckText = "Time check, " + nearest.ToString("HHmm").Aggregate<char, string>(string.Empty, (Func<string, char, string>)((c, i) => c + i.ToString() + " "));
             if (nearest.Second == 30)
                 timecheckText += " and a half.";
             return timecheckText;
         }
 
-        private double SetTimeCheckContent(PromptBuilder speech)
+        private static DateTime RoundToNearestHalfMinute(DateTime time)
         {
-            TimeCheckStream = new MemoryStream();
-            return SetContent(speech, ref TimeCheckStream);
-        }
+            var halfMinute = TimeSpan.FromSeconds(30.0).Ticks;
 
-        private double GenerateCompleteStream()
-        {
-            CompleteStream = new MemoryStream();
+            var rounded = (long)Math.Round((double)time.Ticks / halfMinute, MidpointRounding.AwayFromZero) * halfMinute;
 
-            ATISStream.Seek(0, SeekOrigin.Begin);
-            ATISStream.CopyTo(CompleteStream);
-
-            CompleteStream.Seek(0, SeekOrigin.End);
-
-            if (TimeCheck)
-            {
-                GenerateTimeCheck();
-                TimeCheckStream.Seek(0, SeekOrigin.Begin);
-                TimeCheckStream.CopyTo(CompleteStream);
-            }
-
-            return CompleteStream.Length / WaveForm.AverageBytesPerSecond * 1000.0;
+            return new DateTime(rounded, time.Kind);
         }
 
         private WaveFileWriter writer;

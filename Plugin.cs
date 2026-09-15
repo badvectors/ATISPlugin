@@ -256,6 +256,15 @@ namespace ATISPlugin
             }
         }
 
+        // Dispatch queued audio without waiting for the next poll, so the
+        // broadcast starts close to the time the timecheck was spoken for.
+        public static void BroadcastNow()
+        {
+            BroadcastTimer.Stop();
+            BroadcastTimer.Interval = 250;
+            BroadcastTimer.Start();
+        }
+
         private async void BroadcastTimer_Elasped(object sender, ElapsedEventArgs e)
         {
             var toBroadcast = ToBroadcast.ToList();
@@ -279,6 +288,8 @@ namespace ATISPlugin
                     Errors.Add(new Exception($"Could not start voice ATIS: {ex.Message}"), DisplayName);
                 }
             }
+
+            BroadcastTimer.Interval = TimeSpan.FromSeconds(5).TotalMilliseconds;
 
             BroadcastTimer.Start();
         }
