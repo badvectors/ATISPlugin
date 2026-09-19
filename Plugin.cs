@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Media;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
@@ -288,7 +289,7 @@ namespace ATISPlugin
 
                     try
                     {
-                        await AFV.AddOrUpdateATISBot(atb.Audio, atb.ATISIndex, atb.Callsign, atb.Frequency, atb.VisPoint, atb.Duration);
+                        await StartVoiceATIS(atb);
                     }
                     catch (Exception ex)
                     {
@@ -305,6 +306,57 @@ namespace ATISPlugin
             BroadcastTimer.Interval = ToBroadcast.IsEmpty ? TimeSpan.FromSeconds(5).TotalMilliseconds : 250;
 
             BroadcastTimer.Start();
+        }
+
+        private static async Task StartVoiceATIS(ATISAudio atb)
+        {
+            try
+            {
+                await AFV.AddOrUpdateATISBot(atb.Audio, atb.ATISIndex, atb.Callsign, atb.Frequency, atb.VisPoint, atb.Duration);
+            }
+            catch (Exception ex) when (IsEncoderFault(ex) && ResetEncoder())
+            {
+                // A corrupted encoder fails every upload until vatSys is restarted,
+                // so try again on the replacement.
+                await AFV.AddOrUpdateATISBot(atb.Audio, atb.ATISIndex, atb.Callsign, atb.Frequency, atb.VisPoint, atb.Duration);
+            }
+        }
+
+        // Network and validation errors are thrown elsewhere in vatSys, only a
+        // corrupted encoder throws from inside the encoding itself.
+        private static bool IsEncoderFault(Exception ex)
+        {
+            return !(ex is TimeoutException) && ex.StackTrace != null && ex.StackTrace.Contains("BotHelper2");
+        }
+
+        // Swap the shared Opus encoder in vatSys for a new one. Must only be
+        // called while holding the BroadcastLock.
+        private static bool ResetEncoder()
+        {
+            try
+            {
+                var helper = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(x => x.GetName().Name == "GeoVR.Connection.BotHelper2")?
+                    .GetType("GeoVR.Connection.BotHelper2");
+
+                var field = helper?.GetField("opusEncoder", BindingFlags.NonPublic | BindingFlags.Static);
+
+                if (field == null || field.IsInitOnly) return false;
+
+                var constructor = field.FieldType.GetConstructors().FirstOrDefault(x => x.GetParameters().Length == 3);
+
+                if (constructor == null) return false;
+
+                var application = Enum.Parse(constructor.GetParameters()[2].ParameterType, "OPUS_APPLICATION_VOIP");
+
+                field.SetValue(null, constructor.Invoke(new object[] { 48000, 1, application }));
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private void Audio_VSCSFrequenciesChanged(object sender, EventArgs e)
