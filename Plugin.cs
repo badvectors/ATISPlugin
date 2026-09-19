@@ -1,11 +1,13 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.IO;
 using System.Linq;
 using System.Media;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Forms;
@@ -88,7 +90,12 @@ namespace ATISPlugin
 
         public static SoundPlayer SoundPlayer { get; set; } = new SoundPlayer();
         private static Timer BroadcastTimer { get; set; } = new Timer();
-        public static List<ATISAudio> ToBroadcast { get; set; } = new List<ATISAudio>();
+        public static ConcurrentQueue<ATISAudio> ToBroadcast { get; } = new ConcurrentQueue<ATISAudio>();
+
+        // vatSys encodes bot audio with a single shared Opus encoder that is not
+        // thread safe, so only one upload may run at a time. Overlapping uploads
+        // corrupt the encoder until vatSys is restarted.
+        private static readonly SemaphoreSlim BroadcastLock = new SemaphoreSlim(1, 1);
 
         public static List<VSCSFrequency> Frequencies { get; set; } = new List<VSCSFrequency>();
 
@@ -267,29 +274,35 @@ namespace ATISPlugin
 
         private async void BroadcastTimer_Elasped(object sender, ElapsedEventArgs e)
         {
-            var toBroadcast = ToBroadcast.ToList();
+            // BroadcastNow can fire this handler while an earlier one is still
+            // uploading, so wait for it to finish rather than running alongside it.
+            await BroadcastLock.WaitAsync();
 
-            foreach (var atb in toBroadcast)
+            try
             {
-                var atis = ToBroadcast.FirstOrDefault(x => x.Id == atb.Id);
-
-                if (atis != null) ToBroadcast.Remove(atis);
-
-                if (!Network.IsOfficialServer) continue;
-
-                if (!Network.GetATISConnected(atb.ATISIndex)) continue;
-
-                try
+                while (ToBroadcast.TryDequeue(out var atb))
                 {
-                    await AFV.AddOrUpdateATISBot(atb.Audio, atb.ATISIndex, atb.Callsign, atb.Frequency, atb.VisPoint, atb.Duration);
-                }
-                catch (Exception ex)
-                {
-                    Errors.Add(new Exception($"Could not start voice ATIS: {ex.Message}"), DisplayName);
+                    if (!Network.IsOfficialServer) continue;
+
+                    if (!Network.GetATISConnected(atb.ATISIndex)) continue;
+
+                    try
+                    {
+                        await AFV.AddOrUpdateATISBot(atb.Audio, atb.ATISIndex, atb.Callsign, atb.Frequency, atb.VisPoint, atb.Duration);
+                    }
+                    catch (Exception ex)
+                    {
+                        Errors.Add(new Exception($"Could not start voice ATIS: {ex.Message}"), DisplayName);
+                    }
                 }
             }
+            finally
+            {
+                BroadcastLock.Release();
+            }
 
-            BroadcastTimer.Interval = TimeSpan.FromSeconds(5).TotalMilliseconds;
+            // Audio queued while this handler was finishing must not wait for the slow poll.
+            BroadcastTimer.Interval = ToBroadcast.IsEmpty ? TimeSpan.FromSeconds(5).TotalMilliseconds : 250;
 
             BroadcastTimer.Start();
         }
@@ -319,7 +332,7 @@ namespace ATISPlugin
 
         private async void Network_Disconnected(object sender, EventArgs e)
         {
-            ToBroadcast.Clear();
+            while (ToBroadcast.TryDequeue(out _)) { }
             
             await ATIS1?.Delete();
             await ATIS2?.Delete();

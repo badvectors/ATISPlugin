@@ -418,7 +418,7 @@ namespace ATISPlugin
                 LoopTimer.Stop();
             }
 
-            Plugin.ToBroadcast.Add(new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, interval));
+            Plugin.ToBroadcast.Enqueue(new ATISAudio(audio, Index, Callsign, Frequency, VisPoint, interval));
 
             Plugin.BroadcastNow();
         }
