@@ -43,7 +43,33 @@ namespace ATISPlugin
         public EventHandler<RefreshEventArgs> RefreshEvent { get; set; }
         public string VoiceName { get; set; }
         public PromptRate Rate { get; set; } 
-        private string ZuluFrequency { get; set; }
+        // Kept with the ATIS, as the window switches between ATIS. Empty means AUTO (the airport's contacts).
+        private string ZuluFrequency
+        {
+            get => Control?.ZuluFrequency;
+            set { if (Control != null) Control.ZuluFrequency = value; }
+        }
+
+        // First in the Zulu frequency list: fill the contact from the airport's online stations.
+        private const string ZuluAuto = "AUTO";
+
+        private void LoadZuluFrequencies()
+        {
+            if (ComboBoxZuluFrequency.Items == null) ComboBoxZuluFrequency.Items = new List<string>();
+
+            ComboBoxZuluFrequency.Items.Clear();
+
+            ComboBoxZuluFrequency.Items.Add(ZuluAuto);
+
+            foreach (var frequency in Plugin.Frequencies)
+            {
+                ComboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
+            }
+
+            var index = string.IsNullOrWhiteSpace(ZuluFrequency) ? 0 : ComboBoxZuluFrequency.Items.IndexOf(ZuluFrequency);
+
+            ComboBoxZuluFrequency.SelectedIndex = Math.Max(index, 0);
+        }
         public bool CanRecord => Edits == false && Control.Broadcasting == false ? true : false;
         private bool Initialized { get; set; }
 
@@ -640,17 +666,7 @@ namespace ATISPlugin
 
             ComboBoxVoice.Items.Add(Plugin.ManualVoiceName);
 
-            ComboBoxZuluFrequency.Items.Clear();
-
-            if (Plugin.Frequencies.Any())
-            {
-                foreach (var frequency in Plugin.Frequencies)
-                {
-                    ComboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
-                }
-
-                ComboBoxZuluFrequency.SelectedIndex = 0;
-            }
+            LoadZuluFrequencies();
 
             foreach (var line in Control.Lines)
             {
@@ -744,19 +760,7 @@ namespace ATISPlugin
 
                 ComboBoxTimeCheck.SelectedIndex = ComboBoxTimeCheck.Items.IndexOf(TimeCheck.ToString());
 
-                if (ComboBoxZuluFrequency.Items == null) ComboBoxZuluFrequency.Items = new List<string>();
-
-                ComboBoxZuluFrequency.Items.Clear();
-
-                foreach (var frequency in Plugin.Frequencies)
-                {
-                    ComboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
-                }
-
-                if (!string.IsNullOrWhiteSpace(ZuluFrequency))
-                {
-                    ComboBoxZuluFrequency.SelectedIndex = ComboBoxZuluFrequency.Items.IndexOf(ZuluFrequency);
-                }
+                LoadZuluFrequencies();
 
                 RefreshForm_TopButtons();
 
@@ -1082,21 +1086,47 @@ namespace ATISPlugin
 
             ResumeLayout();
 
-            if (WindowChrome == null)
+            if (WindowChrome == null && WindowState != FormWindowState.Minimized)
             {
                 var chrome = Height - ClientSize.Height;
                 WindowChrome = chrome > 0 ? chrome : 28;
             }
 
-            var height = clientHeight + WindowChrome.Value;
+            PendingHeight = clientHeight + (WindowChrome ?? 28);
 
-            if (Height == height) return;
+            ApplyWindowSize();
+        }
+
+        // The window's width never changes, but it can be scaled up from the designed 680 at load
+        // (AutoScaleMode.Font), so it's taken from the window the first time it's laid out un-minimised.
+        private int? WindowWidth { get; set; }
+        private int? PendingHeight { get; set; }
+
+        // Locks the window to its width and the height the layout needs. While minimised the window's
+        // size is the caption bar's, so locking then would keep it that narrow once restored; the size is
+        // applied when it's restored instead.
+        private void ApplyWindowSize()
+        {
+            if (PendingHeight == null || WindowState == FormWindowState.Minimized) return;
+
+            if (WindowWidth == null) WindowWidth = Width >= 680 ? Width : 680;
+
+            var size = new System.Drawing.Size(WindowWidth.Value, PendingHeight.Value);
+
+            if (Size == size && MinimumSize == size && MaximumSize == size) return;
 
             MinimumSize = System.Drawing.Size.Empty;
             MaximumSize = System.Drawing.Size.Empty;
-            Height = height;
-            MinimumSize = new System.Drawing.Size(Width, height);
-            MaximumSize = new System.Drawing.Size(Width, height);
+            Size = size;
+            MinimumSize = size;
+            MaximumSize = size;
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+
+            if (IsHandleCreated && WindowState != FormWindowState.Minimized) BeginInvoke(new Action(ApplyWindowSize));
         }
 
         private Label GetLabel(int number)
@@ -2360,6 +2390,8 @@ namespace ATISPlugin
             {
                 Control.IsZulu = true;
 
+                ZuluFrequency = null;
+
                 GenerateZulu();
             }
             else
@@ -2378,13 +2410,18 @@ namespace ATISPlugin
         {
             if (ComboBoxZuluFrequency.SelectedIndex == -1) return;
 
-            var zuluFrequency = ComboBoxZuluFrequency.Items[ComboBoxZuluFrequency.SelectedIndex];
+            var zuluFrequency = ComboBoxZuluFrequency.SelectedIndex == 0 ? null : ComboBoxZuluFrequency.Items[ComboBoxZuluFrequency.SelectedIndex];
 
-            if (zuluFrequency == ZuluFrequency) return;
+            if (zuluFrequency == ZuluFrequency || (string.IsNullOrEmpty(zuluFrequency) && string.IsNullOrEmpty(ZuluFrequency))) return;
 
             ZuluFrequency = zuluFrequency;
 
+            if (!Control.IsZulu) return;
+
             GenerateZulu();
+
+            ButtonSave.Enabled = true;
+            ButtonCancel.Enabled = true;
         });
 
         private void GenerateZulu()
@@ -2399,15 +2436,28 @@ namespace ATISPlugin
 
             var atis = zuluInfo.Text;
 
-            var frequency = Plugin.Frequencies.FirstOrDefault(x => x.Name == ZuluFrequency || x.FriendlyName == ZuluFrequency);
+            // A frequency picked by hand, otherwise the first of the airport's contacts that's online. With
+            // neither, {STATION} {FREQ} stay for the controller to fill in.
+            var frequency = string.IsNullOrWhiteSpace(ZuluFrequency) ? null
+                : Plugin.Frequencies.FirstOrDefault(x => x.Name == ZuluFrequency || x.FriendlyName == ZuluFrequency);
 
             if (frequency != null)
             {
                 var station = string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName;
-                
+
                 atis = atis.Replace("{STATION}", station.ToUpper());
-                
+
                 atis = atis.Replace("{FREQ}", Conversions.FrequencyToString(frequency.Frequency));
+            }
+            else
+            {
+                var contact = Zulu.FindContact(zuluInfo);
+
+                Control.ZuluContact = contact;
+
+                if (contact != null) Control.ZuluContactsGiven.Add(contact);
+
+                atis = Zulu.Fill(atis, contact);
             }
 
             zuluLine.Value = atis;
