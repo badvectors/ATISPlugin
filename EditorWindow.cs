@@ -256,8 +256,9 @@ namespace ATISPlugin
 
         private List<PresetMode> Modes { get; set; } = new List<PresetMode>();
 
-        // The modes offered now: not those for the other season (e.g. AEST curfew wording during AEDT), except the
-        // selected mode, which stays listed if the season changes while it's in use.
+        // The modes offered now: not those for the other season (e.g. AEST curfew wording during AEDT), or those
+        // another airport's ATIS rules out (YSWS RRO while YSSY isn't on curfew), except the selected mode, which
+        // stays listed while it's in use.
         private List<PresetMode> VisibleModes
         {
             get
@@ -266,7 +267,7 @@ namespace ATISPlugin
 
                 var utcNow = DateTime.UtcNow;
 
-                return Modes.Where(x => x.Name == Mode || x.AppliesAt(utcNow, timeZone)).ToList();
+                return Modes.Where(x => x.Name == Mode || x.IsOffered(utcNow, timeZone)).ToList();
             }
         }
 
@@ -400,7 +401,10 @@ namespace ATISPlugin
 
                 if (textBox == null || text.Length == 0) continue;
 
-                if (autoAdd.Applies(Mode, runways, wind, RunwayHeading) != ContainsPreset(textBox.Text, text))
+                // Left as it is while another airport it depends on isn't known.
+                var applies = autoAdd.AppliesNow(Mode, runways, wind, RunwayHeading);
+
+                if (applies != null && applies.Value != ContainsPreset(textBox.Text, text))
                 {
                     textBox.Text = TogglePreset(textBox.Text, text);
                 }
@@ -628,11 +632,11 @@ namespace ATISPlugin
             ShowModeMenu();
         });
 
-        private static bool ContainsPreset(string text, string preset) =>
+        internal static bool ContainsPreset(string text, string preset) =>
             (text ?? string.Empty).IndexOf(preset, StringComparison.OrdinalIgnoreCase) >= 0;
 
         // Adds the preset to the end of the field, or removes it if it's already there.
-        private static string TogglePreset(string text, string preset)
+        internal static string TogglePreset(string text, string preset)
         {
             var current = (text ?? string.Empty).Trim();
 
@@ -1277,6 +1281,31 @@ namespace ATISPlugin
             if (IsHandleCreated && WindowState != FormWindowState.Minimized) BeginInvoke(new Action(ApplyWindowSize));
         }
 
+        private readonly ToolTip LinkedToolTip = new ToolTip { InitialDelay = 200, AutoPopDelay = 15000 };
+
+        // A field suggested from another airport's ATIS says why when its name is pointed at, e.g.
+        // "From YPPH ATIS K (ozserver): RWY 03 FOR ARR".
+        private void RefreshForm_LinkedReasons()
+        {
+            string Reason(string field) =>
+                field != null && Control.LinkedReasons.TryGetValue(field, out var reason) && !string.IsNullOrWhiteSpace(reason)
+                    ? $"From {reason}" : null;
+
+            for (var number = 1; number <= 12; number++)
+            {
+                var line = Control.Lines.FirstOrDefault(x => x.Number == number);
+
+                var suggested = line != null && Control.SuggestedLines.Any(x => x.Name == line.Name);
+
+                var text = suggested ? Reason(line.Name) : null;
+
+                LinkedToolTip.SetToolTip(GetLabel(number), text);
+                LinkedToolTip.SetToolTip(GetTextBox(number), text);
+            }
+
+            LinkedToolTip.SetToolTip(LabelMode, Control.SuggestedMode != null ? Reason("MODE") : null);
+        }
+
         private Label GetLabel(int number)
         {
             switch (number)
@@ -1864,6 +1893,8 @@ namespace ATISPlugin
                         break;
                 }
             }
+
+            RefreshForm_LinkedReasons();
 
             if (Edits)
             {
@@ -2651,7 +2682,9 @@ namespace ATISPlugin
                 atis = Zulu.Fill(atis, contact);
             }
 
-            zuluLine.Value = atis;
+            // An edit waiting to be saved, like one typed in, so Save is offered. Writing it to the line itself made
+            // it look already saved.
+            Saves[zuluLine.Name] = atis;
 
             TextBoxZulu.Text = atis;
         }

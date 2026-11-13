@@ -12,15 +12,15 @@ namespace ATISPlugin
     // from it. Each section of its content is one ATIS field, named as in the editor (RWY, APCH, OPR INFO...).
     public class SavedATIS
     {
-        private const string Url = "https://api.ozserver.org/api/v1/vatsim/atis/";
+        internal const string Url = "https://api.ozserver.org/api/v1/vatsim/atis/";
 
         // Long enough for the API to answer, short enough that a slow one doesn't hold up the runway mode.
-        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
+        internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
         // Older than this, the runways and procedures are likely to have changed, so it isn't offered.
         public static readonly TimeSpan MaxAge = TimeSpan.FromHours(3);
 
-        private static readonly HttpClient Client = new HttpClient();
+        internal static readonly HttpClient Client = new HttpClient();
 
         public string ICAO { get; private set; }
         public char? Letter { get; private set; }
@@ -89,12 +89,14 @@ namespace ATISPlugin
             }
         }
 
-        // The API answers with a list, empty when nothing is saved for the airport.
+        // The API answers with the airport's record, or a list of records (empty when nothing is saved for it).
         public static SavedATIS Parse(string json, string icao, DateTime? utcNow = null)
         {
-            if (!(JToken.Parse(json) is JArray list)) return null;
+            var token = JToken.Parse(json);
 
-            var item = list.OfType<JObject>().FirstOrDefault(x => string.Equals((string)x["icao"], icao, StringComparison.OrdinalIgnoreCase));
+            var items = token is JArray list ? list.OfType<JObject>() : token is JObject single ? new[] { single } : Enumerable.Empty<JObject>();
+
+            var item = items.FirstOrDefault(x => string.Equals((string)x["icao"], icao, StringComparison.OrdinalIgnoreCase));
 
             if (item == null) return null;
 
@@ -135,7 +137,8 @@ namespace ATISPlugin
                 }
             }
 
-            var updated = item["last_updated"];
+            // Called last_updated before, issued now. Either a DDHHMM(Z) time group or a full date.
+            var updated = new[] { item["last_updated"], item["issued"] }.FirstOrDefault(x => x != null && x.Type != JTokenType.Null);
 
             if (updated != null && updated.Type == JTokenType.Date)
             {
