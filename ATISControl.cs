@@ -479,6 +479,7 @@ namespace ATISPlugin
             Callsign = null;
             VisPoint = null;
             IsZulu = false;
+            ZuluBefore = null;
             ZuluFrequency = null;
             ZuluContact = null;
             ZuluContactsGiven.Clear();
@@ -517,6 +518,8 @@ namespace ATISPlugin
             await BroadcastStop();
 
             DateTimeUtc = DateTime.UtcNow;
+
+            ZuluBefore = null;
 
             // Saved again with the same letter (not broadcast in between), it still hasn't gone out.
             if (id != ID) LetterBroadcast = false;
@@ -1196,6 +1199,38 @@ namespace ATISPlugin
 
         // The "STATION FREQ" the Zulu ATIS was last given from the airport's contacts, null for the placeholders.
         public string ZuluContact { get; set; }
+
+        // A switch to or from the Zulu ATIS waits to be saved like any other edit: what it was before, to go back to
+        // if it's cancelled. Null when there's no switch waiting.
+        private class ZuluState
+        {
+            public bool IsZulu;
+            public string Frequency;
+            public string Contact;
+        }
+
+        private ZuluState ZuluBefore { get; set; }
+
+        public bool ZuluPending => ZuluBefore != null && ZuluBefore.IsZulu != IsZulu;
+
+        public void ToggleZulu()
+        {
+            if (ZuluBefore == null) ZuluBefore = new ZuluState { IsZulu = IsZulu, Frequency = ZuluFrequency, Contact = ZuluContact };
+
+            IsZulu = !IsZulu;
+        }
+
+        // Back to how it was saved (e.g. Cancel after clicking Zulu).
+        public void CancelZulu()
+        {
+            if (ZuluBefore == null) return;
+
+            IsZulu = ZuluBefore.IsZulu;
+            ZuluFrequency = ZuluBefore.Frequency;
+            ZuluContact = ZuluBefore.Contact;
+
+            ZuluBefore = null;
+        }
 
         // Every contact given this session, to find the one in the text after a suggestion is cancelled.
         public HashSet<string> ZuluContactsGiven { get; } = new HashSet<string>();

@@ -35,7 +35,7 @@ namespace ATISPlugin
         private string LoadedICAO { get; set; }
         private PresetAirport PresetAirport => ICAO == null ? null : Plugin.Presets.GetAirport(ICAO);
         private Dictionary<int, PresetButton> PresetButtons { get; set; } = new Dictionary<int, PresetButton>();
-        private bool Edits => Saves.Any() || 
+        private bool Edits => Saves.Any() || Control.ZuluPending || 
             TimeCheck != Control.TimeCheck || 
             ID != Control.ID || 
             Mode != Control.Mode || 
@@ -126,6 +126,9 @@ namespace ATISPlugin
 
         private void ChangeNow(int number)
         {
+            // Edits to the ATIS being left are dropped, a switch to or from Zulu with them.
+            if (Number != 0) Control?.CancelZulu();
+
             Number = number;
 
             ICAO = Control.ICAO;
@@ -2193,6 +2196,8 @@ namespace ATISPlugin
 
         private void ButtonCancel_Click(object sender, EventArgs e) => Safely("cancel the changes", () =>
         {
+            Control.CancelZulu();
+
             ID = Control.ID;
 
             Mode = Control.Mode;
@@ -2608,18 +2613,17 @@ namespace ATISPlugin
 
             Saves.Clear();
 
-            if (!Control.IsZulu)
-            {
-                Control.IsZulu = true;
+            // Waits to be saved, so Cancel goes back.
+            Control.ToggleZulu();
 
+            if (Control.IsZulu)
+            {
                 ZuluFrequency = null;
 
                 GenerateZulu();
             }
             else
             {
-                Control.IsZulu = false;
-
                 TextBoxZulu.Text = string.Empty;
 
                 ZuluFrequency = string.Empty;
