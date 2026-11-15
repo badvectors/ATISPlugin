@@ -1200,6 +1200,44 @@ namespace ATISPlugin
             return added;
         }
 
+        // Adds or removes the AutoAdd texts that depend on the runway mode, for a mode being suggested, against the
+        // fields as suggested. Those depending on another airport too are left while it isn't known.
+        private void SuggestModeAutoAdds(PresetAirport presetAirport, string mode)
+        {
+            string Current(ATISLine line) => SuggestedLines.FirstOrDefault(x => x.Name == line.Name)?.Value ?? line.Value ?? string.Empty;
+
+            var windLine = Lines.FirstOrDefault(x => x.METARField == METARField.Wind);
+            var runwayLine = Lines.FirstOrDefault(x => x.Name == "RWY");
+
+            var wind = windLine == null ? null : Wind.Parse(Current(windLine));
+
+            var runways = runwayLine == null ? new List<string>() : Wind.RunwaysInUse(Current(runwayLine));
+
+            foreach (var autoAdd in presetAirport.AutoAdds.Where(x => !string.IsNullOrWhiteSpace(x.Modes)))
+            {
+                var line = Lines.FirstOrDefault(x => x.Name == autoAdd.Field);
+
+                var text = PresetAirport.Clean(autoAdd.Text);
+
+                if (line == null || text.Length == 0) continue;
+
+                var applies = autoAdd.AppliesNow(mode, runways, wind, runway => EditorWindow.RunwayHeading(ICAO, runway));
+
+                var current = Current(line);
+
+                if (applies == null || applies.Value == EditorWindow.ContainsPreset(current, text)) continue;
+
+                var value = EditorWindow.TogglePreset(current, text);
+
+                SuggestedLines.RemoveAll(x => x.Name == line.Name);
+
+                if ((line.Value ?? string.Empty) != value)
+                {
+                    SuggestedLines.Add(new ATISLine(line.Name, 0, line.Type, line.NameSpoken, line.NumbersGrouped, value, line.METARField));
+                }
+            }
+        }
+
         // A frequency picked by hand for the Zulu ATIS contact. Null or empty picks from the airport's contacts.
         public string ZuluFrequency { get; set; }
 
@@ -1359,6 +1397,9 @@ namespace ATISPlugin
 
                 SuggestedLines.Add(new ATISLine(line.Name, 0, line.Type, line.NameSpoken, line.NumbersGrouped, value, line.METARField));
             }
+
+            // With the additions that go with the mode (e.g. YSWS RRO's OPR INFO), as when it's picked in the editor.
+            SuggestModeAutoAdds(presetAirport, best.Name);
 
             SuggestedMode = best.Name;
 
