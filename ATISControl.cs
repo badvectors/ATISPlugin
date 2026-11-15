@@ -827,7 +827,13 @@ namespace ATISPlugin
 
                 SavedATISPending = true;
 
+                // The airports this one depends on are read meanwhile, so the runway mode is picked knowing them
+                // (e.g. YSWS RRO only with YSSY on curfew). Both are quick, or given up on at the timeout.
+                var linked = LinkedATIS.Refresh(Plugin.LinkedAirports(icao));
+
                 var saved = await SavedATIS.Get(icao);
+
+                await linked;
 
                 MMI.InvokeOnGUI(delegate ()
                 {

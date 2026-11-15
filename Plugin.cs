@@ -150,6 +150,19 @@ namespace ATISPlugin
 
                 LinkedATIS.Held = () => AllATIS.ToList();
 
+                // Checked again as soon as another airport's ATIS is read or changes.
+                LinkedATIS.Changed = () =>
+                {
+                    try
+                    {
+                        MMI.InvokeOnGUI(delegate () { CheckTimedUpdates(); });
+                    }
+                    catch
+                    {
+                        // Checked at the next minute instead.
+                    }
+                };
+
                 BroadcastTimer.Elapsed += new ElapsedEventHandler(BroadcastTimer_Elasped);
                 BroadcastTimer.Interval = TimeSpan.FromSeconds(5).TotalMilliseconds;
                 BroadcastTimer.AutoReset = false;
@@ -180,16 +193,15 @@ namespace ATISPlugin
             _ = GetPresets();
         }
 
-        // The other airports the open ATISs depend on, by their presets (e.g. YPPH for YPJT).
-        private static IEnumerable<string> LinkedAirports()
+        // The other airports an airport's ATIS depends on, by its presets (e.g. YPPH for YPJT).
+        public static List<string> LinkedAirports(string icao)
         {
-            if (Presets == null) return Enumerable.Empty<string>();
+            var airport = icao == null ? null : Presets?.GetAirport(icao);
 
-            return AllATIS.Where(x => x.ICAO != null && !x.IsZulu)
-                .Select(x => Presets.GetAirport(x.ICAO))
-                .Where(x => x != null)
-                .SelectMany(x => x.AutoAdds.Where(a => a.IsLinked).Select(a => a.Airport)
-                    .Concat(x.Modes.Where(m => m.IsLinked).Select(m => m.Airport)))
+            if (airport == null) return new List<string>();
+
+            return airport.AutoAdds.Where(x => x.IsLinked).Select(x => x.Airport)
+                .Concat(airport.Modes.Where(x => x.IsLinked).Select(x => x.Airport))
                 .ToList();
         }
 
@@ -437,18 +449,8 @@ namespace ATISPlugin
         {
             try
             {
-                // Read again for the next check, and checked again as soon as one has changed.
-                LinkedATIS.Refresh(LinkedAirports(), () =>
-                {
-                    try
-                    {
-                        MMI.InvokeOnGUI(delegate () { CheckTimedUpdates(); });
-                    }
-                    catch
-                    {
-                        // Checked at the next minute instead.
-                    }
-                });
+                // Read again for the next check.
+                _ = LinkedATIS.Refresh(AllATIS.Where(x => x.ICAO != null && !x.IsZulu).SelectMany(x => LinkedAirports(x.ICAO)).ToList());
 
                 foreach (var atis in AllATIS)
                 {

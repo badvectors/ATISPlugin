@@ -25,10 +25,14 @@ namespace ATISPlugin
         // From ozserver, by airport: the last answer (null when it had nothing current), until the next refresh.
         private static readonly ConcurrentDictionary<string, LinkedATIS> Fetched = new ConcurrentDictionary<string, LinkedATIS>(StringComparer.OrdinalIgnoreCase);
 
-        private static readonly ConcurrentDictionary<string, bool> Fetching = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        // Requests under way, by airport, so a second caller waits for the same one.
+        private static readonly ConcurrentDictionary<string, Task> Fetching = new ConcurrentDictionary<string, Task>(StringComparer.OrdinalIgnoreCase);
 
         // Set by the plugin: the ATISs it holds, to read before asking ozserver.
         public static Func<IEnumerable<ATISControl>> Held { get; set; } = () => Enumerable.Empty<ATISControl>();
+
+        // Set by the plugin: called (off the GUI thread) when an airport's ATIS is first read, or has changed.
+        public static Action Changed { get; set; }
 
         // The airport's ATIS as it stands, or null when it isn't known.
         public static LinkedATIS Find(string icao)
@@ -91,11 +95,14 @@ namespace ATISPlugin
             };
         }
 
-        // Asks ozserver for each airport not held here. Silent, as with every ozserver request: one that fails
-        // leaves the airport unknown. Calls back (off the GUI thread) once any answer has changed.
-        public static void Refresh(IEnumerable<string> airports, Action changed)
+        // Asks ozserver for each airport not held here, finishing when all have answered or timed out. Silent, as
+        // with every ozserver request: one that fails leaves the airport unknown. Calls Changed when an airport is
+        // first read or its answer has changed.
+        public static Task Refresh(IEnumerable<string> airports)
         {
-            if (!OnLiveNetwork()) return;
+            if (!OnLiveNetwork() || airports == null) return Task.CompletedTask;
+
+            var requests = new List<Task>();
 
             foreach (var icao in airports.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim().ToUpper()).Distinct())
             {
@@ -110,40 +117,41 @@ namespace ATISPlugin
                     heldHere = false;
                 }
 
-                if (heldHere || !Fetching.TryAdd(icao, true)) continue;
+                if (heldHere) continue;
 
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        var linked = FromSaved(await SavedATIS.Get(icao).ConfigureAwait(false), DateTime.UtcNow);
+                var request = Fetching.GetOrAdd(icao, key => Task.Run(() => Fetch(key)));
 
-                        Fetched.TryGetValue(icao, out var previous);
+                // Forgotten once it's done, so the next refresh asks again; only this request, should a newer one
+                // have taken its place.
+                request.ContinueWith(done => ((ICollection<KeyValuePair<string, Task>>)Fetching).Remove(new KeyValuePair<string, Task>(icao, done)));
 
-                        Fetched[icao] = linked;
+                requests.Add(request);
+            }
 
-                        if (Describe(previous) != Describe(linked)) changed?.Invoke();
-                    }
-                    catch
-                    {
-                        // Unknown until the next refresh.
-                    }
-                    finally
-                    {
-                        Fetching.TryRemove(icao, out _);
-                    }
-                });
+            return Task.WhenAll(requests);
+        }
+
+        private static async Task Fetch(string icao)
+        {
+            try
+            {
+                var linked = FromSaved(await SavedATIS.Get(icao).ConfigureAwait(false), DateTime.UtcNow);
+
+                var first = !Fetched.TryGetValue(icao, out var previous);
+
+                Fetched[icao] = linked;
+
+                if (first || Describe(previous) != Describe(linked)) Changed?.Invoke();
+            }
+            catch
+            {
+                // Unknown until the next refresh.
             }
         }
 
         private static string Describe(LinkedATIS atis) => atis == null ? string.Empty
             : $"{atis.Letter}|{string.Join("|", atis.Fields.OrderBy(x => x.Key).Select(x => $"{x.Key}={x.Value}"))}";
 
-        // For tests.
-        public static void SetFetched(string icao, LinkedATIS atis) => Fetched[icao] = atis;
-
-        public static LinkedATIS Create(string icao, char? letter, Dictionary<string, string> fields, string source = "test") =>
-            new LinkedATIS { ICAO = icao, Letter = letter, Fields = fields, Source = source };
     }
 
     // A preset condition on another airport's ATIS: Airport="YPPH" AirportField="RWY" Contains="03".
