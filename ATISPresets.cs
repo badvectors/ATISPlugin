@@ -198,6 +198,18 @@ namespace ATISPlugin
         [XmlAttribute]
         public bool DryOnly { get; set; }
 
+        // Weather in which the mode is preferred over its priority: cloud base (BKN or more, ft) or visibility (m)
+        // below these, e.g. YSCB RRO, otherwise last, first below 1200FT or 5000M. 0 means never.
+        [XmlAttribute]
+        public int PreferredBelowCeiling { get; set; }
+
+        [XmlAttribute]
+        public int PreferredBelowVisibility { get; set; }
+
+        public bool PreferredIn(int ceiling, int visibility) =>
+            (PreferredBelowCeiling > 0 && ceiling < PreferredBelowCeiling) ||
+            (PreferredBelowVisibility > 0 && visibility < PreferredBelowVisibility);
+
         // False for modes that are never picked automatically.
         [XmlAttribute]
         public bool AutoSelect { get; set; } = true;
