@@ -10,6 +10,8 @@
     MinCeiling, MinVisibility  lowest BKN/OVC cloud base (ft) and visibility (m) the mode needs.
                             METAR steps mean "above 3000FT" is 3100 and "above 5000M" is 6000.
     DryOnly="true"          not used on a wet runway (SFC COND set, or precipitation in the METAR).
+    PreferredBelowCeiling, PreferredBelowVisibility  cloud base (ft) or visibility (m) below which the mode is
+                            preferred over its priority, like a mode within its Hours (e.g. RRO in low cloud).
     AutoSelect="false"      never picked automatically.
     Hours="2300-0600"       local hours the mode is for (curfew, RRO), using TimeZone on <Airport>. Within them
                             it's preferred over other modes; outside them it's never picked automatically.
@@ -316,6 +318,11 @@
       <Field Name="RWY">05 FOR ARR. RWY 23 FOR DEP</Field>
       <Field Name="OPR INFO">CURFEW IN OPERATION UNTIL TIME 1930</Field>
     </Mode>
+    <!-- RRO outside curfew: last, but first with the cloud base below 400FT or visibility below 2400M. -->
+    <Mode Name="RRO" Priority="7" PreferredBelowCeiling="400" PreferredBelowVisibility="2400">
+      <Field Name="RWY">05 FOR ARR. RWY 23 FOR DEP</Field>
+      <Field Name="OPR INFO" />
+    </Mode>
     <Presets Field="APCH">
       <Preset>ACFT FM THE EAST AND JET ACFT FM THE WEST EXP INST APCH</Preset>
       <Preset>EXP INST APCH</Preset>
@@ -345,14 +352,15 @@
 
   <Airport ICAO="YSCB">
     <!-- The SOP gives no RWY wording for these modes; it follows the YPPH crossing runway format.
-         RRO is last, as it's only suited to noise abatement, which isn't a factor on VATSIM. -->
+         RRO is last, as it's mainly for noise abatement, which isn't a factor on VATSIM, but first with the
+         cloud base below 1200FT or visibility below 5000M. -->
     <Mode Name="3530AD" Priority="1">
       <Field Name="RWY">35 AND RWY 30 FOR ARR AND DEP</Field>
     </Mode>
     <Mode Name="1712AD" Priority="2">
       <Field Name="RWY">17 AND RWY 12 FOR ARR AND DEP</Field>
     </Mode>
-    <Mode Name="17A35D (RRO)" Priority="7">
+    <Mode Name="17A35D (RRO)" Priority="7" PreferredBelowCeiling="1200" PreferredBelowVisibility="5000">
       <Field Name="RWY">17 FOR ARR. RWY 35 FOR DEP</Field>
     </Mode>
     <Mode Name="RWY 35" Priority="4">
@@ -377,9 +385,44 @@
   </Airport>
 
   <Airport ICAO="YPDN">
+    <!-- The SOP lists these modes without a priority or RWY wording; it follows the YPPH crossing runway format. -->
+    <Mode Name="29AD36A">
+      <Field Name="RWY">29 AND RWY 36 FOR ARR. RWY 29 FOR DEP</Field>
+    </Mode>
+    <Mode Name="29AD18A">
+      <Field Name="RWY">29 AND RWY 18 FOR ARR. RWY 29 FOR DEP</Field>
+    </Mode>
+    <Mode Name="11AD36A">
+      <Field Name="RWY">11 AND RWY 36 FOR ARR. RWY 11 FOR DEP</Field>
+    </Mode>
+    <Mode Name="11AD18A">
+      <Field Name="RWY">11 AND RWY 18 FOR ARR. RWY 11 FOR DEP</Field>
+    </Mode>
     <Presets Field="OPR INFO" Multiple="true">
       <Preset>LAND AND HOLD SHORT OPERATIONS IN PROGRESS</Preset>
     </Presets>
+  </Airport>
+
+  <Airport ICAO="YBTL">
+    <!-- The SOP gives no RWY wording for these modes; it follows the YSCB crossing runway format. -->
+    <Mode Name="01AD/07AD" Priority="1">
+      <Field Name="RWY">01 AND RWY 07 FOR ARR AND DEP</Field>
+    </Mode>
+    <Mode Name="19AD/25AD" Priority="1">
+      <Field Name="RWY">19 AND RWY 25 FOR ARR AND DEP</Field>
+    </Mode>
+    <Mode Name="RWY 01" Priority="2">
+      <Field Name="RWY">01</Field>
+    </Mode>
+    <Mode Name="RWY 19" Priority="2">
+      <Field Name="RWY">19</Field>
+    </Mode>
+    <Mode Name="RWY 07" Priority="3">
+      <Field Name="RWY">07</Field>
+    </Mode>
+    <Mode Name="RWY 25" Priority="3">
+      <Field Name="RWY">25</Field>
+    </Mode>
   </Airport>
 
   <Airport ICAO="YSWS" TimeZone="AUS Eastern Standard Time">
@@ -400,6 +443,8 @@
     <Presets Field="APCH">
       <Preset>EXP INST APCH</Preset>
     </Presets>
+    <!-- The SOP's ATIS wording for RRO, in OPR INFO while RRO is the mode. -->
+    <AutoAdd Field="OPR INFO" Modes="RRO">RECIPROCAL RWY OPS IN PROGRESS</AutoAdd>
     <Presets Field="OPR INFO" Multiple="true" Modes="RRO">
       <Preset>RECIPROCAL RWY OPS IN PROGRESS</Preset>
     </Presets>
@@ -541,7 +586,7 @@
     <AutoAdd Field="OPR INFO" Airport="YPPH" AirportField="RWY" Contains="03">DUE YPPH DUTY RWY 03, CAUTION WAKE TURB</AutoAdd>
   </Airport>
 
-  <Airport ICAO="YMMB" SingleRunwayFormat="ALL OPERATIONS RWY {RWY}" ReportCrosswindFrom="5">
+  <Airport ICAO="YMMB" SingleRunwayFormat="{RWY} ALL AIRBORNE OPERATIONS" ReportCrosswindFrom="5">
     <Mode Name="17 PROPS" Priority="1">
       <Field Name="RWY">17L FOR ARRS AND DEPS EAST. RWY 17R FOR ARRS AND DEPS WEST</Field>
     </Mode>
