@@ -198,6 +198,14 @@ namespace ATISPlugin
         [XmlAttribute]
         public bool DryOnly { get; set; }
 
+        // Tailwind (kt) the mode allows on a dry or a wet runway, where the SOP differs from the usual 5KT and none,
+        // e.g. 10 and 5 for Pacific reciprocal runway operations. Below 0 means the usual.
+        [XmlAttribute]
+        public int MaxTailwind { get; set; } = -1;
+
+        [XmlAttribute]
+        public int MaxTailwindWet { get; set; } = -1;
+
         // Weather in which the mode is preferred over its priority: cloud base (BKN or more, ft) or visibility (m)
         // below these, e.g. YSCB RRO, otherwise last, first below 1200FT or 5000M. 0 means never.
         [XmlAttribute]

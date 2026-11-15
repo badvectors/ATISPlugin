@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace ATISPlugin
 {
     // Ranks runway modes against the current weather, following the VATPAC runway management SOP:
-    // crosswind up to 20kt, tailwind up to 5kt on a dry runway and none on a wet one.
+    // crosswind up to 20kt, tailwind up to 5kt on a dry runway and none on a wet one, unless the mode says otherwise.
     public static class RunwaySelection
     {
         public const int MaxCrosswind = 20;
@@ -98,7 +98,9 @@ namespace ATISPlugin
 
         public static Assessment Assess(PresetMode mode, Conditions conditions, Func<string, double> heading)
         {
-            var maxTailwind = conditions.Wet ? MaxTailwindWet : MaxTailwindDry;
+            var maxTailwind = conditions.Wet
+                ? (mode.MaxTailwindWet >= 0 ? mode.MaxTailwindWet : MaxTailwindWet)
+                : (mode.MaxTailwind >= 0 ? mode.MaxTailwind : MaxTailwindDry);
 
             var weatherOk = conditions.Ceiling >= mode.MinCeiling
                 && conditions.Visibility >= mode.MinVisibility
