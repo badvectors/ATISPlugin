@@ -5,6 +5,9 @@
 		<AssemblyName>ATISPlugin</AssemblyName>
 		<PlatformTarget>x86</PlatformTarget>
 		<ProgramFilesX86>$(MSBuildProgramFiles32)</ProgramFilesX86>
+		<!-- Where vatSys.exe and VATSYSControls.dll are referenced from: the installed vatSys unless set, e.g. by the
+		     release workflow, which extracts them from the vatSys installer. -->
+		<VatSysBin Condition="'$(VatSysBin)' == ''">$(ProgramFilesX86)\vatSys\bin</VatSysBin>
 		<OutputPath>C:\Users\ajdun\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins\ATIS Plugin</OutputPath>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<AssemblyVersion>4.4</AssemblyVersion>
@@ -13,11 +16,11 @@
 
 	<ItemGroup>
 		<Reference Include="vatSys">
-			<HintPath>$(ProgramFilesX86)\vatSys\bin\vatSys.exe</HintPath>
+			<HintPath>$(VatSysBin)\vatSys.exe</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="VATSYSControls">
-			<HintPath>$(ProgramFilesX86)\vatSys\bin\VATSYSControls.dll</HintPath>
+			<HintPath>$(VatSysBin)\VATSYSControls.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 		<Reference Include="System" />

@@ -1,0 +1,115 @@
+name: Release
+
+# Publishes a release whenever the version on master (AssemblyVersion in ATISPlugin.csproj) hasn't been released:
+# bump the version in a PR and merge it, and vX.Y is built and released as "Version X.Y" with ATISPlugin.zip.
+# A version that already has a tag is left alone, so other changes to the project file release nothing.
+on:
+  push:
+    branches: [master]
+    paths:
+      - ATISPlugin.csproj
+      - .github/workflows/release.yml
+
+permissions:
+  contents: write
+
+# One release at a time, never cancelled part way.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the version
+        id: version
+        run: |
+          [xml]$project = Get-Content ATISPlugin.csproj -Raw
+          $groups = @($project.Project.PropertyGroup)
+          $version = @($groups | ForEach-Object { $_.AssemblyVersion } | Where-Object { $_ })[0]
+          $fileVersion = @($groups | ForEach-Object { $_.FileVersion } | Where-Object { $_ })[0]
+
+          if ($version -notmatch '^\d+\.\d+(\.\d+){0,2}$') { throw "AssemblyVersion '$version' isn't a version like 4.4." }
+          if ($fileVersion -ne $version) { throw "FileVersion '$fileVersion' doesn't match AssemblyVersion '$version'." }
+
+          $tag = "v$version"
+          git rev-parse -q --verify "refs/tags/$tag" | Out-Null
+          $tagged = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+
+          if ($tagged) { "$tag is already tagged, so there's nothing to release." }
+          else { "Releasing $tag." }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "release=$(if ($tagged) { 'false' } else { 'true' })" >> $env:GITHUB_OUTPUT
+
+      # vatSys.exe and VATSYSControls.dll are only referenced, never shipped. They're extracted (not installed) from
+      # the official installer.
+      - name: Get vatSys to build against
+        if: steps.version.outputs.release == 'true'
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'vatSysSetup.zip'
+          $setup = Join-Path $env:RUNNER_TEMP 'vatSysSetup'
+          $target = Join-Path $env:RUNNER_TEMP 'vatSys'
+
+          Invoke-WebRequest 'https://vatsys.sawbe.com/downloads/vatSysSetup.zip' -OutFile $zip
+          Expand-Archive $zip -DestinationPath $setup
+
+          $msi = Get-ChildItem $setup -Recurse -Filter *.msi | Select-Object -First 1
+          if (-not $msi) { throw 'The vatSys installer has no .msi in it.' }
+
+          $extract = Start-Process msiexec.exe -ArgumentList '/a', "`"$($msi.FullName)`"", '/qn', "TARGETDIR=`"$target`"" -Wait -PassThru
+          if ($extract.ExitCode -ne 0) { throw "Extracting the vatSys installer failed ($($extract.ExitCode))." }
+
+          $exe = Get-ChildItem $target -Recurse -Filter vatSys.exe | Select-Object -First 1
+          if (-not $exe -or -not (Test-Path (Join-Path $exe.DirectoryName 'VATSYSControls.dll'))) {
+            throw 'vatSys.exe and VATSYSControls.dll weren''t found in the vatSys installer.'
+          }
+
+          "VATSYS_BIN=$($exe.DirectoryName)" >> $env:GITHUB_ENV
+
+      - name: Build
+        if: steps.version.outputs.release == 'true'
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'build'
+          dotnet build ATISPlugin.csproj -c Release -o $out "-p:VatSysBin=$env:VATSYS_BIN"
+          if ($LASTEXITCODE -ne 0) { throw 'The build failed.' }
+
+          $built = (Get-Item (Join-Path $out 'ATISPlugin.dll')).VersionInfo.FileVersion
+          if ($built -ne '${{ steps.version.outputs.version }}') { throw "The built DLL is version $built." }
+
+          "BUILD_DIR=$out" >> $env:GITHUB_ENV
+
+      # The same files as earlier releases, at the root of the zip.
+      - name: Package
+        if: steps.version.outputs.release == 'true'
+        run: |
+          $files = 'ATISPlugin.dll', 'ATISPlugin.pdb', 'NAudio.Core.dll', 'NAudio.WinMM.dll', 'Newtonsoft.Json.dll' |
+            ForEach-Object { Join-Path $env:BUILD_DIR $_ }
+
+          $missing = $files | Where-Object { -not (Test-Path $_) }
+          if ($missing) { throw "Missing from the build: $($missing -join ', ')" }
+
+          $zip = Join-Path $env:RUNNER_TEMP 'ATISPlugin.zip'
+          Compress-Archive -Path $files -DestinationPath $zip
+          "ZIP=$zip" >> $env:GITHUB_ENV
+
+      - name: Release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create '${{ steps.version.outputs.tag }}' $env:ZIP `
+            --title 'Version ${{ steps.version.outputs.version }}' `
+            --target $env:GITHUB_SHA `
+            --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'Creating the release failed.' }
