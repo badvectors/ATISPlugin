@@ -9,8 +9,15 @@ namespace ATISPlugin
     [XmlRoot("ATISPresets")]
     public class ATISPresets
     {
+        // Where the division gets METARs faster than VATSIM's feed, if anywhere. Without one, METARs come from vatSys.
+        [XmlElement("MetarSource")]
+        public List<MetarSourceConfig> MetarSources { get; set; } = new List<MetarSourceConfig>();
+
         [XmlElement("Airport")]
         public List<PresetAirport> Airports { get; set; } = new List<PresetAirport>();
+
+        // The source covering an airport, or null to use vatSys alone.
+        public MetarSourceConfig GetMetarSource(string icao) => MetarSources.FirstOrDefault(x => x.Covers(icao));
 
         // An Airport entry can list several ICAO codes (e.g. shared templates), so every entry that
         // covers the airport is combined.

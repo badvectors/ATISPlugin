@@ -1719,6 +1719,8 @@ namespace ATISPlugin
 
             LabelMETAR.Text = Control.METARRaw;
 
+            LinkedToolTip.SetToolTip(LabelMETAR, string.IsNullOrWhiteSpace(Control.METARRaw) || Control.METARSource == null ? null : $"From {Control.METARSource}");
+
             if (Control.HasUpdates && ID != Control.ID)
             {
                 LabelATIS.ForeColor = Colours.GetColour(Colours.Identities.Warning);
@@ -2134,6 +2136,8 @@ namespace ATISPlugin
             LoadRunways();
 
             GetMetar();
+
+            _ = MetarSource.Refresh(new[] { ICAO }, force: true);
         });
 
         private void ComboBoxAirport_SelectedIndexChanged(object sender, EventArgs e) => Safely("select the airport", () =>
@@ -2187,9 +2191,25 @@ namespace ATISPlugin
             var metar = MET.Instance.GetProducts(new MET.ProductRequest(MET.ProductType.VATSIM_METAR, Control.ICAO, true))?
                 .FirstOrDefault(x => x.Type == MET.ProductType.VATSIM_METAR && x.Text != "No product available.");
 
-            if (metar == null) return;
+            // The newer of vatSys's METAR and the METAR source's, which is also asked again.
+            var now = DateTime.UtcNow;
 
-            Control.UpdateMetar(metar.Text);
+            var fromSource = MetarSource.Find(Control.ICAO, now);
+
+            var vatSysTime = metar == null ? null : MetarSource.ObservedUtc(metar.Text, now);
+
+            if (fromSource != null && (metar == null || vatSysTime == null || fromSource.ObservedUtc > vatSysTime.Value))
+            {
+                Control.UpdateMetar(fromSource.Text, fromSource.Source);
+            }
+            else if (metar != null)
+            {
+                Control.UpdateMetar(metar.Text);
+            }
+
+            _ = MetarSource.Refresh(new[] { Control.ICAO }, force: true);
+
+            if (metar == null && fromSource == null) return;
 
             RefreshForm();
         });

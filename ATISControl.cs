@@ -49,6 +49,9 @@ namespace ATISPlugin
         private PromptBuilder ATISSpoken { get; set; }
         private SpeechAudioFormatInfo SpeechFormat { get; set; }
         public string METARRaw { get; set; }
+        // Where METARRaw came from: vatSys, or the division's METAR source (e.g. vatpac.org).
+        public string METARSource { get; private set; }
+        public const string VatSysSource = "vatSys";
         private WaveFormat WaveForm { get; set; } = new WaveFormat(48000, 1);
         public PromptRate PromptRate { get; set; } = PromptRate.Medium;
         public InstalledVoice InstalledVoice => SpeechSynth.GetInstalledVoices().FirstOrDefault(x => x.VoiceInfo.Name == VoiceName);
@@ -491,6 +494,7 @@ namespace ATISPlugin
             LetterBroadcast = false;
 
             METARRaw = null;
+            METARSource = null;
 
             foreach (var line in Lines)
             {
@@ -893,7 +897,7 @@ namespace ATISPlugin
 
                 ForceMetarUpdate = true;
 
-                UpdateMetar(METARRaw);
+                UpdateMetar(METARRaw, METARSource ?? VatSysSource);
             }
 
             var mode = SavedMode(saved);
@@ -983,22 +987,49 @@ namespace ATISPlugin
                 .FirstOrDefault()?.Name;
         }
 
+        private bool IsNewer(string metar, string source)
+        {
+            if (string.IsNullOrWhiteSpace(METARRaw)) return true;
+
+            var now = DateTime.UtcNow;
+
+            var current = ATISPlugin.MetarSource.ObservedUtc(METARRaw, now);
+
+            var incoming = ATISPlugin.MetarSource.ObservedUtc(metar, now);
+
+            // Without times to compare, the newest to arrive wins, as before.
+            if (current == null || incoming == null) return true;
+
+            if (incoming.Value != current.Value) return incoming.Value > current.Value;
+
+            return source == METARSource;
+        }
+
         // Set by Load METAR, so the next METAR is applied even if it's the one already loaded.
         public bool ForceMetarUpdate { get; set; }
 
-        public bool UpdateMetar(string metar)
+        // A METAR from vatSys or the division's METAR source. Whichever has the newer report wins: one no newer than
+        // the METAR already loaded (by its DDHHMMZ time) is ignored, so the two sources can't roll each other back
+        // or take turns. A report at the same time is taken only from the source the loaded one came from (a
+        // correction). Load METAR forces the newest of the two.
+        public bool UpdateMetar(string metar, string source = VatSysSource)
         {
-            if (ICAO == null) return false;
+            if (ICAO == null || string.IsNullOrWhiteSpace(metar)) return false;
 
             var force = ForceMetarUpdate;
 
             ForceMetarUpdate = false;
 
+            metar = ATISPlugin.MetarSource.Clean(metar) ?? metar.Trim();
+
             if (metar == METARRaw && !force) return false;
 
             if (IsZulu && !string.IsNullOrWhiteSpace(METARRaw)) return false;
 
+            if (!force && !IsNewer(metar, source)) return false;
+
             METARRaw = metar;
+            METARSource = source;
 
             var updatedLines = new METAR().Process(metar);
 
