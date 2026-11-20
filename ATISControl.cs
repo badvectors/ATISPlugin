@@ -1,5 +1,6 @@
 ﻿using NAudio.Utils;
 using NAudio.Wave;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -48,6 +49,9 @@ namespace ATISPlugin
         private PromptBuilder ATISSpoken { get; set; }
         private SpeechAudioFormatInfo SpeechFormat { get; set; }
         public string METARRaw { get; set; }
+        // Where METARRaw came from: vatSys, or the division's METAR source (e.g. vatpac.org).
+        public string METARSource { get; private set; }
+        public const string VatSysSource = "vatSys";
         private WaveFormat WaveForm { get; set; } = new WaveFormat(48000, 1);
         public PromptRate PromptRate { get; set; } = PromptRate.Medium;
         public InstalledVoice InstalledVoice => SpeechSynth.GetInstalledVoices().FirstOrDefault(x => x.VoiceInfo.Name == VoiceName);
@@ -256,7 +260,7 @@ namespace ATISPlugin
 
             var started = DateTime.UtcNow;
 
-            DateTime? connectedUtc = null;
+            ConnectedSinceUtc = null;
 
             try
             {
@@ -269,20 +273,23 @@ namespace ATISPlugin
 
                     if (Network.GetATISConnected(Index))
                     {
-                        if (connectedUtc == null) connectedUtc = DateTime.UtcNow;
+                        if (ConnectedSinceUtc == null) ConnectedSinceUtc = DateTime.UtcNow;
+
+                        // A broadcast waiting for the connection to be confirmed goes to ozserver once it is.
+                        TryPush();
 
                         continue;
                     }
 
                     string message;
 
-                    if (connectedUtc == null)
+                    if (ConnectedSinceUtc == null)
                     {
                         if (DateTime.UtcNow - started < ConnectTimeout) continue;
 
                         message = $"Could not connect {callsign} to the network. Check it isn't already online.";
                     }
-                    else if (DateTime.UtcNow - connectedUtc.Value < RefusedWithin)
+                    else if (DateTime.UtcNow - ConnectedSinceUtc.Value < RefusedWithin)
                     {
                         message = $"The network refused {callsign}. It's most likely already online.";
                     }
@@ -304,9 +311,155 @@ namespace ATISPlugin
             }
         }
 
+        // When the ATIS connection was first seen up, since it was created. Null until then.
+        private DateTime? ConnectedSinceUtc { get; set; }
+
+        // ozserver takes whatever it's sent, so a broadcast is only sent once the plugin has checked it: on the live
+        // network as valid ATC, with the ATIS connected long enough that the network hasn't refused it (a refusal
+        // comes within a second or two), under its own callsign, with a letter and something to say.
+        private static readonly TimeSpan PushConfirmAfter = TimeSpan.FromSeconds(10);
+
+        // The broadcast waiting to be sent, built when it went out on the network. Null when there's none.
+        private JObject PendingPush { get; set; }
+
+        // The last body sent, so the same one isn't sent twice. Null until something is sent. Nothing is sent when
+        // the ATIS goes: the next one pushed for the airport replaces it on ozserver.
+        private string PushedBody { get; set; }
+
+        private static readonly Regex IcaoRegex = new Regex("^[A-Z]{4}$");
+
+        // Called just after the ATIS goes out on the network. Sent now if it checks out, or once the connection is
+        // confirmed while it's still new. A later broadcast replaces one still waiting.
+        private void QueuePush()
+        {
+            try
+            {
+                PendingPush = BuildPush();
+
+                TryPush();
+            }
+            catch
+            {
+                // Only ever an extra: the ATIS is on the network all the same.
+                PendingPush = null;
+            }
+        }
+
+        private void TryPush()
+        {
+            try
+            {
+                var body = PendingPush;
+
+                if (body == null) return;
+
+                var ready = CanPush(body);
+
+                if (ready == null) return;
+
+                PendingPush = null;
+
+                if (ready == false) return;
+
+                var json = body.ToString(Newtonsoft.Json.Formatting.None);
+
+                if (json == PushedBody) return;
+
+                PushedBody = json;
+
+                ATISPush.Put((string)body["icao"], body);
+            }
+            catch
+            {
+                PendingPush = null;
+            }
+        }
+
+        // True to send, false never to (off the live network, or no longer this ATIS), null to wait for the
+        // connection to be confirmed.
+        private bool? CanPush(JObject body)
+        {
+            // Deleted, or replaced by another ATIS, since it was built.
+            if (ICAO == null || (string)body["icao"] != ICAO || (string)body["callsign"] != Callsign) return false;
+
+            if (!SavedATIS.Available || !Network.IsValidATC || !LetterBroadcast) return false;
+
+            if (!Network.GetATISConnected(Index) || ConnectedSinceUtc == null) return null;
+
+            if (DateTime.UtcNow - ConnectedSinceUtc.Value < PushConfirmAfter) return null;
+
+            return true;
+        }
+
+        // The broadcast as ozserver takes it, the same shape as it gives back. Null when it isn't fit to send.
+        private JObject BuildPush()
+        {
+            if (ICAO == null || !IcaoRegex.IsMatch(ICAO) || Callsign != $"{ICAO}_ATIS") return null;
+
+            if (ID < 'A' || ID > 'Z') return null;
+
+            var cid = Network.ControllerId?.Trim();
+            var callsign = Network.Callsign?.Trim().ToUpperInvariant();
+
+            if (string.IsNullOrEmpty(cid) || !cid.All(char.IsDigit) || string.IsNullOrEmpty(callsign)) return null;
+
+            JToken content;
+
+            var changed = new JArray();
+
+            if (IsZulu)
+            {
+                var text = Lines.FirstOrDefault(x => x.Name == "ZULU")?.Value?.Trim();
+
+                if (string.IsNullOrEmpty(text)) return null;
+
+                content = text;
+            }
+            else
+            {
+                var fields = new JObject();
+
+                var filled = 0;
+
+                foreach (var line in Lines.Where(x => x.Name != "OFCW_NOTIFY" && x.Name != "ZULU"))
+                {
+                    var value = line.Value?.Trim();
+
+                    fields[line.Name] = string.IsNullOrEmpty(value) ? JValue.CreateNull() : new JValue(value.ToUpperInvariant());
+
+                    if (!string.IsNullOrEmpty(value)) filled++;
+
+                    if (line.Changed && !string.IsNullOrEmpty(value)) changed.Add(line.Name);
+                }
+
+                if (filled == 0) return null;
+
+                content = fields;
+            }
+
+            return new JObject
+            {
+                ["icao"] = ICAO,
+                ["callsign"] = Callsign,
+                ["atis_letter"] = ID.ToString(),
+                ["type"] = IsZulu ? "zulu" : "atis",
+                ["frequency"] = Frequency == 0 ? null : (Frequency / 1000000.0).ToString("0.000", CultureInfo.InvariantCulture),
+                ["issued"] = DateTime.SpecifyKind(DateTimeUtc, DateTimeKind.Utc).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+                ["content"] = content,
+                ["changed"] = changed,
+                ["controller"] = new JObject { ["callsign"] = callsign, ["cid"] = cid },
+                ["client"] = ATISPush.Client
+            };
+        }
+
         public async Task Delete()
         {
             ConnectionWatch++;
+
+            // Nothing goes to ozserver: what was last pushed stays there for the next controller to carry on from.
+            PendingPush = null;
+            PushedBody = null;
+            ConnectedSinceUtc = null;
 
             await BroadcastStop();
 
@@ -320,13 +473,16 @@ namespace ATISPlugin
             TimedSuggestionsMade.Clear();
             RunwayChangeAlerted = null;
             SuggestedMode = null;
+            LinkedReasons.Clear();
             TimedModesInPeriod = null;
+            LinkedModeSuggestions.Clear();
             FrequencyDisplay = null;
             Frequency = 0;
             AliasFrequency = 0;
             Callsign = null;
             VisPoint = null;
             IsZulu = false;
+            ZuluBefore = null;
             ZuluFrequency = null;
             ZuluContact = null;
             ZuluContactsGiven.Clear();
@@ -338,6 +494,7 @@ namespace ATISPlugin
             LetterBroadcast = false;
 
             METARRaw = null;
+            METARSource = null;
 
             foreach (var line in Lines)
             {
@@ -365,6 +522,8 @@ namespace ATISPlugin
             await BroadcastStop();
 
             DateTimeUtc = DateTime.UtcNow;
+
+            ZuluBefore = null;
 
             // Saved again with the same letter (not broadcast in between), it still hasn't gone out.
             if (id != ID) LetterBroadcast = false;
@@ -401,6 +560,7 @@ namespace ATISPlugin
             SuggestedLines.Clear();
 
             SuggestedMode = null;
+            LinkedReasons.Clear();
 
             TimedSuggestionsMade.Clear();
 
@@ -458,6 +618,8 @@ namespace ATISPlugin
                 Network.UpdateATIS(Index, ID, GetInfo());
 
                 LetterBroadcast = true;
+
+                QueuePush();
 
                 BroadcastAudio();
             }
@@ -593,6 +755,7 @@ namespace ATISPlugin
             SuggestedLines.Clear();
 
             SuggestedMode = null;
+            LinkedReasons.Clear();
 
             SavedLetter = null;
         }
@@ -668,7 +831,13 @@ namespace ATISPlugin
 
                 SavedATISPending = true;
 
+                // The airports this one depends on are read meanwhile, so the runway mode is picked knowing them
+                // (e.g. YSWS RRO only with YSSY on curfew). Both are quick, or given up on at the timeout.
+                var linked = LinkedATIS.Refresh(Plugin.LinkedAirports(icao));
+
                 var saved = await SavedATIS.Get(icao);
+
+                await linked;
 
                 MMI.InvokeOnGUI(delegate ()
                 {
@@ -728,7 +897,7 @@ namespace ATISPlugin
 
                 ForceMetarUpdate = true;
 
-                UpdateMetar(METARRaw);
+                UpdateMetar(METARRaw, METARSource ?? VatSysSource);
             }
 
             var mode = SavedMode(saved);
@@ -781,6 +950,8 @@ namespace ATISPlugin
 
                     LetterBroadcast = true;
 
+                    QueuePush();
+
                     return;
                 }
 
@@ -816,22 +987,49 @@ namespace ATISPlugin
                 .FirstOrDefault()?.Name;
         }
 
+        private bool IsNewer(string metar, string source)
+        {
+            if (string.IsNullOrWhiteSpace(METARRaw)) return true;
+
+            var now = DateTime.UtcNow;
+
+            var current = ATISPlugin.MetarSource.ObservedUtc(METARRaw, now);
+
+            var incoming = ATISPlugin.MetarSource.ObservedUtc(metar, now);
+
+            // Without times to compare, the newest to arrive wins, as before.
+            if (current == null || incoming == null) return true;
+
+            if (incoming.Value != current.Value) return incoming.Value > current.Value;
+
+            return source == METARSource;
+        }
+
         // Set by Load METAR, so the next METAR is applied even if it's the one already loaded.
         public bool ForceMetarUpdate { get; set; }
 
-        public bool UpdateMetar(string metar)
+        // A METAR from vatSys or the division's METAR source. Whichever has the newer report wins: one no newer than
+        // the METAR already loaded (by its DDHHMMZ time) is ignored, so the two sources can't roll each other back
+        // or take turns. A report at the same time is taken only from the source the loaded one came from (a
+        // correction). Load METAR forces the newest of the two.
+        public bool UpdateMetar(string metar, string source = VatSysSource)
         {
-            if (ICAO == null) return false;
+            if (ICAO == null || string.IsNullOrWhiteSpace(metar)) return false;
 
             var force = ForceMetarUpdate;
 
             ForceMetarUpdate = false;
 
+            metar = ATISPlugin.MetarSource.Clean(metar) ?? metar.Trim();
+
             if (metar == METARRaw && !force) return false;
 
             if (IsZulu && !string.IsNullOrWhiteSpace(METARRaw)) return false;
 
+            if (!force && !IsNewer(metar, source)) return false;
+
             METARRaw = metar;
+            METARSource = source;
 
             var updatedLines = new METAR().Process(metar);
 
@@ -977,7 +1175,98 @@ namespace ATISPlugin
 
             added |= CheckTimedModes(utcNow);
 
+            added |= CheckLinkedAutoAdds();
+
             return added;
+        }
+
+        // Why a field was suggested from another airport's ATIS, by field name (MODE for a runway mode), e.g.
+        // "YPPH ATIS K (ozserver): RWY 03". Cleared with the suggestions.
+        public Dictionary<string, string> LinkedReasons { get; } = new Dictionary<string, string>();
+
+        // Suggests adding or removing AutoAdd text that depends on another airport's ATIS as that ATIS changes (e.g.
+        // YPJT's wake turbulence caution while YPPH uses runway 03). Nothing while that ATIS isn't known, so losing
+        // it doesn't take the text away. Each change is suggested once until the next save.
+        private bool CheckLinkedAutoAdds()
+        {
+            var presetAirport = Plugin.Presets?.GetAirport(ICAO);
+
+            if (presetAirport == null || !presetAirport.AutoAdds.Any(x => x.IsLinked)) return false;
+
+            var added = false;
+
+            string Current(ATISLine line) => SuggestedLines.FirstOrDefault(x => x.Name == line.Name)?.Value ?? line.Value ?? string.Empty;
+
+            var windLine = Lines.FirstOrDefault(x => x.METARField == METARField.Wind);
+            var runwayLine = Lines.FirstOrDefault(x => x.Name == "RWY");
+
+            var wind = windLine == null ? null : Wind.Parse(Current(windLine));
+
+            var runways = runwayLine == null ? new List<string>() : Wind.RunwaysInUse(Current(runwayLine));
+
+            var mode = SuggestedMode ?? Mode;
+
+            foreach (var autoAdd in presetAirport.AutoAdds.Where(x => x.IsLinked))
+            {
+                var line = Lines.FirstOrDefault(x => x.Name == autoAdd.Field);
+
+                var text = PresetAirport.Clean(autoAdd.Text);
+
+                if (line == null || text.Length == 0) continue;
+
+                var applies = autoAdd.AppliesNow(mode, runways, wind, runway => EditorWindow.RunwayHeading(ICAO, runway));
+
+                var current = Current(line);
+
+                if (applies == null || applies.Value == EditorWindow.ContainsPreset(current, text)) continue;
+
+                if (SuggestTimed(line, EditorWindow.TogglePreset(current, text)))
+                {
+                    LinkedReasons[line.Name] = AirportCondition.Reason(autoAdd.Airport, autoAdd.AirportField);
+
+                    added = true;
+                }
+            }
+
+            return added;
+        }
+
+        // Adds or removes the AutoAdd texts that depend on the runway mode, for a mode being suggested, against the
+        // fields as suggested. Those depending on another airport too are left while it isn't known.
+        private void SuggestModeAutoAdds(PresetAirport presetAirport, string mode)
+        {
+            string Current(ATISLine line) => SuggestedLines.FirstOrDefault(x => x.Name == line.Name)?.Value ?? line.Value ?? string.Empty;
+
+            var windLine = Lines.FirstOrDefault(x => x.METARField == METARField.Wind);
+            var runwayLine = Lines.FirstOrDefault(x => x.Name == "RWY");
+
+            var wind = windLine == null ? null : Wind.Parse(Current(windLine));
+
+            var runways = runwayLine == null ? new List<string>() : Wind.RunwaysInUse(Current(runwayLine));
+
+            foreach (var autoAdd in presetAirport.AutoAdds.Where(x => !string.IsNullOrWhiteSpace(x.Modes)))
+            {
+                var line = Lines.FirstOrDefault(x => x.Name == autoAdd.Field);
+
+                var text = PresetAirport.Clean(autoAdd.Text);
+
+                if (line == null || text.Length == 0) continue;
+
+                var applies = autoAdd.AppliesNow(mode, runways, wind, runway => EditorWindow.RunwayHeading(ICAO, runway));
+
+                var current = Current(line);
+
+                if (applies == null || applies.Value == EditorWindow.ContainsPreset(current, text)) continue;
+
+                var value = EditorWindow.TogglePreset(current, text);
+
+                SuggestedLines.RemoveAll(x => x.Name == line.Name);
+
+                if ((line.Value ?? string.Empty) != value)
+                {
+                    SuggestedLines.Add(new ATISLine(line.Name, 0, line.Type, line.NameSpoken, line.NumbersGrouped, value, line.METARField));
+                }
+            }
         }
 
         // A frequency picked by hand for the Zulu ATIS contact. Null or empty picks from the airport's contacts.
@@ -985,6 +1274,38 @@ namespace ATISPlugin
 
         // The "STATION FREQ" the Zulu ATIS was last given from the airport's contacts, null for the placeholders.
         public string ZuluContact { get; set; }
+
+        // A switch to or from the Zulu ATIS waits to be saved like any other edit: what it was before, to go back to
+        // if it's cancelled. Null when there's no switch waiting.
+        private class ZuluState
+        {
+            public bool IsZulu;
+            public string Frequency;
+            public string Contact;
+        }
+
+        private ZuluState ZuluBefore { get; set; }
+
+        public bool ZuluPending => ZuluBefore != null && ZuluBefore.IsZulu != IsZulu;
+
+        public void ToggleZulu()
+        {
+            if (ZuluBefore == null) ZuluBefore = new ZuluState { IsZulu = IsZulu, Frequency = ZuluFrequency, Contact = ZuluContact };
+
+            IsZulu = !IsZulu;
+        }
+
+        // Back to how it was saved (e.g. Cancel after clicking Zulu).
+        public void CancelZulu()
+        {
+            if (ZuluBefore == null) return;
+
+            IsZulu = ZuluBefore.IsZulu;
+            ZuluFrequency = ZuluBefore.Frequency;
+            ZuluContact = ZuluBefore.Contact;
+
+            ZuluBefore = null;
+        }
 
         // Every contact given this session, to find the one in the text after a suggestion is cancelled.
         public HashSet<string> ZuluContactsGiven { get; } = new HashSet<string>();
@@ -1033,6 +1354,9 @@ namespace ATISPlugin
         // The runway mode suggested by CheckTimedModes, with its fields in SuggestedLines, until saved or cancelled.
         public string SuggestedMode { get; set; }
 
+        // Mode changes suggested from another airport's ATIS, by mode and that ATIS, so each is suggested once.
+        private readonly HashSet<string> LinkedModeSuggestions = new HashSet<string>();
+
         // The timed modes (curfew, RRO) within their hours at the last check, to spot hours starting and ending.
         private string TimedModesInPeriod { get; set; }
 
@@ -1054,8 +1378,12 @@ namespace ATISPlugin
 
             TimedModesInPeriod = inPeriod;
 
-            // The first check only records the hours; the mode picked on creation already allows for them.
-            if (previous == null || previous == inPeriod) return false;
+            // The first check only records the hours; the mode picked on creation already allows for them. A mode
+            // that depends on another airport's ATIS is checked against it every time as well, as that ATIS may
+            // already say otherwise (e.g. RRO picked, or kept, while YSSY isn't on curfew).
+            var changed = previous != null && previous != inPeriod;
+
+            if (!changed && !modes.Any(x => x.IsLinked)) return false;
 
             var surfaceLine = Lines.FirstOrDefault(x => x.Name == SurfaceCondition.Field);
 
@@ -1075,6 +1403,17 @@ namespace ATISPlugin
 
             if (!toTimed && !fromTimed) return false;
 
+            if (!changed)
+            {
+                // Only on the other airport's word, not on a guess while it isn't known, and once for each of its
+                // ATISs: cancelled, or saved anyway, it isn't suggested again until that ATIS changes.
+                var linked = toTimed && best.IsLinked ? best : fromTimed && current.IsLinked ? current : null;
+
+                if (linked == null || AirportCondition.Check(linked.Airport, linked.AirportField, linked.Contains) == null) return false;
+
+                if (!LinkedModeSuggestions.Add($"MODE={best.Name}|{AirportCondition.Reason(linked.Airport, linked.AirportField)}")) return false;
+            }
+
             foreach (var field in best.Fields)
             {
                 var line = Lines.FirstOrDefault(x => x.Name == field.Name);
@@ -1090,7 +1429,14 @@ namespace ATISPlugin
                 SuggestedLines.Add(new ATISLine(line.Name, 0, line.Type, line.NameSpoken, line.NumbersGrouped, value, line.METARField));
             }
 
+            // With the additions that go with the mode (e.g. YSWS RRO's OPR INFO), as when it's picked in the editor.
+            SuggestModeAutoAdds(presetAirport, best.Name);
+
             SuggestedMode = best.Name;
+
+            var linkedMode = new[] { best, current }.FirstOrDefault(x => x != null && x.IsLinked);
+
+            if (linkedMode != null) LinkedReasons["MODE"] = AirportCondition.Reason(linkedMode.Airport, linkedMode.AirportField);
 
             SuggestionsVersion++;
 

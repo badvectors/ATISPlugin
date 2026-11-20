@@ -101,6 +101,8 @@ namespace ATISPlugin
         public static SoundPlayer SoundPlayer { get; set; } = new SoundPlayer();
         private static Timer BroadcastTimer { get; set; } = new Timer();
         private static Timer TimedUpdatesTimer { get; set; } = new Timer();
+        // Checks often enough for a METAR source's interval (e.g. 150 seconds) to be kept, not rounded up to minutes.
+        private static Timer MetarSourceTimer { get; set; } = new Timer();
         public static ConcurrentQueue<ATISAudio> ToBroadcast { get; } = new ConcurrentQueue<ATISAudio>();
 
         // vatSys encodes bot audio with a single shared Opus encoder that is not
@@ -148,6 +150,37 @@ namespace ATISPlugin
                 ATIS3.StatusChanged += OnUpdate;
                 ATIS4.StatusChanged += OnUpdate;
 
+                LinkedATIS.Held = () => AllATIS.ToList();
+
+                // The division's METAR source, if its presets set one, on the live network only. Otherwise (no
+                // source, Sweatbox, a private server) METARs come from vatSys alone.
+                MetarSource.SourceFor = icao => OnLiveNetwork ? Presets?.GetMetarSource(icao) : null;
+
+                MetarSource.Received = metar =>
+                {
+                    try
+                    {
+                        MMI.InvokeOnGUI(delegate () { UpdateMetar(metar); });
+                    }
+                    catch
+                    {
+                        // Applied at the next request, or vatSys's METAR is used.
+                    }
+                };
+
+                // Checked again as soon as another airport's ATIS is read or changes.
+                LinkedATIS.Changed = () =>
+                {
+                    try
+                    {
+                        MMI.InvokeOnGUI(delegate () { CheckTimedUpdates(); });
+                    }
+                    catch
+                    {
+                        // Checked at the next minute instead.
+                    }
+                };
+
                 BroadcastTimer.Elapsed += new ElapsedEventHandler(BroadcastTimer_Elasped);
                 BroadcastTimer.Interval = TimeSpan.FromSeconds(5).TotalMilliseconds;
                 BroadcastTimer.AutoReset = false;
@@ -157,6 +190,11 @@ namespace ATISPlugin
                 TimedUpdatesTimer.Interval = UntilNextMinute();
                 TimedUpdatesTimer.AutoReset = false;
                 TimedUpdatesTimer.Start();
+
+                MetarSourceTimer.Elapsed += new ElapsedEventHandler(MetarSourceTimer_Elapsed);
+                MetarSourceTimer.Interval = TimeSpan.FromSeconds(15).TotalMilliseconds;
+                MetarSourceTimer.AutoReset = true;
+                MetarSourceTimer.Start();
 
                 // Only once the ATIS exist to take the METARs.
                 MET.Instance.ProductsChanged += METARChanged;
@@ -176,6 +214,18 @@ namespace ATISPlugin
             _ = GetCodeBlocks();
 
             _ = GetPresets();
+        }
+
+        // The other airports an airport's ATIS depends on, by its presets (e.g. YPPH for YPJT).
+        public static List<string> LinkedAirports(string icao)
+        {
+            var airport = icao == null ? null : Presets?.GetAirport(icao);
+
+            if (airport == null) return new List<string>();
+
+            return airport.AutoAdds.Where(x => x.IsLinked).Select(x => x.Airport)
+                .Concat(airport.Modes.Where(x => x.IsLinked).Select(x => x.Airport))
+                .ToList();
         }
 
         private static IEnumerable<ATISControl> AllATIS => new[] { ATIS1, ATIS2, ATIS3, ATIS4 }.Where(x => x != null);
@@ -210,6 +260,27 @@ namespace ATISPlugin
                 if (atis == null) return;
 
                 var updated = atis.UpdateMetar(metar.Text);
+
+                OnMETARUpdate(atis.Number, updated);
+            }
+            catch (Exception ex)
+            {
+                Errors.Add(new Exception($"Could not update ATIS from METAR: {ex.Message}"), DisplayName);
+            }
+        }
+
+        // A report from the division's METAR source, used if it's newer than the ATIS's METAR.
+        private void UpdateMetar(SourceMetar metar)
+        {
+            try
+            {
+                if (!MetarSource.IsUsed(metar.ICAO)) return;
+
+                var atis = GetATIS(metar.ICAO);
+
+                if (atis == null) return;
+
+                var updated = atis.UpdateMetar(metar.Text, metar.Source);
 
                 OnMETARUpdate(atis.Number, updated);
             }
@@ -408,6 +479,21 @@ namespace ATISPlugin
             }
         }
 
+        // Each airport held is asked for once its source's interval is up; nothing is sent without a source.
+        private void MetarSourceTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            try
+            {
+                if (Disposed || !OnLiveNetwork) return;
+
+                _ = MetarSource.Refresh(AllATIS.Select(x => new { x.ICAO, x.IsZulu }).Where(x => x.ICAO != null && !x.IsZulu).Select(x => x.ICAO).ToList());
+            }
+            catch
+            {
+                // Asked at the next check.
+            }
+        }
+
         // Just past the next minute, as a timer can fire a little early.
         private static double UntilNextMinute()
         {
@@ -422,6 +508,9 @@ namespace ATISPlugin
         {
             try
             {
+                // Read again for the next check.
+                _ = LinkedATIS.Refresh(AllATIS.Where(x => x.ICAO != null && !x.IsZulu).SelectMany(x => LinkedAirports(x.ICAO)).ToList());
+
                 foreach (var atis in AllATIS)
                 {
                     if (atis.CheckTimedUpdates(DateTime.UtcNow)) OnMETARUpdate(atis.Number, true);
@@ -746,6 +835,9 @@ namespace ATISPlugin
 
                 TimedUpdatesTimer.Stop();
                 TimedUpdatesTimer.Dispose();
+
+                MetarSourceTimer.Stop();
+                MetarSourceTimer.Dispose();
             }
             catch { }
 

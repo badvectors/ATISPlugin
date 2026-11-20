@@ -9,8 +9,15 @@ namespace ATISPlugin
     [XmlRoot("ATISPresets")]
     public class ATISPresets
     {
+        // Where the division gets METARs faster than VATSIM's feed, if anywhere. Without one, METARs come from vatSys.
+        [XmlElement("MetarSource")]
+        public List<MetarSourceConfig> MetarSources { get; set; } = new List<MetarSourceConfig>();
+
         [XmlElement("Airport")]
         public List<PresetAirport> Airports { get; set; } = new List<PresetAirport>();
+
+        // The source covering an airport, or null to use vatSys alone.
+        public MetarSourceConfig GetMetarSource(string icao) => MetarSources.FirstOrDefault(x => x.Covers(icao));
 
         // An Airport entry can list several ICAO codes (e.g. shared templates), so every entry that
         // covers the airport is combined.
@@ -198,6 +205,26 @@ namespace ATISPlugin
         [XmlAttribute]
         public bool DryOnly { get; set; }
 
+        // Tailwind (kt) the mode allows on a dry or a wet runway, where the SOP differs from the usual 5KT and none,
+        // e.g. 10 and 5 for Pacific reciprocal runway operations. Below 0 means the usual.
+        [XmlAttribute]
+        public int MaxTailwind { get; set; } = -1;
+
+        [XmlAttribute]
+        public int MaxTailwindWet { get; set; } = -1;
+
+        // Weather in which the mode is preferred over its priority: cloud base (BKN or more, ft) or visibility (m)
+        // below these, e.g. YSCB RRO, otherwise last, first below 1200FT or 5000M. 0 means never.
+        [XmlAttribute]
+        public int PreferredBelowCeiling { get; set; }
+
+        [XmlAttribute]
+        public int PreferredBelowVisibility { get; set; }
+
+        public bool PreferredIn(int ceiling, int visibility) =>
+            (PreferredBelowCeiling > 0 && ceiling < PreferredBelowCeiling) ||
+            (PreferredBelowVisibility > 0 && visibility < PreferredBelowVisibility);
+
         // False for modes that are never picked automatically.
         [XmlAttribute]
         public bool AutoSelect { get; set; } = true;
@@ -212,7 +239,27 @@ namespace ATISPlugin
         [XmlAttribute]
         public string DaylightSaving { get; set; }
 
-        public bool IsTimed => !string.IsNullOrWhiteSpace(Hours);
+        // Another airport's ATIS the mode is for, e.g. Airport="YSSY" AirportField="OPR INFO" Contains="CURFEW" for
+        // YSWS RRO while YSSY is on curfew. The mode is then timed: in period while that ATIS matches (and within
+        // Hours, if given). While that ATIS isn't known, Hours decide alone, or without Hours it's out of period.
+        [XmlAttribute]
+        public string Airport { get; set; }
+
+        [XmlAttribute]
+        public string AirportField { get; set; }
+
+        // Text to find in AirportField, as whole words; alternatives separated by |.
+        [XmlAttribute]
+        public string Contains { get; set; }
+
+        public bool IsLinked => AirportCondition.IsSet(Airport);
+
+        public bool IsTimed => !string.IsNullOrWhiteSpace(Hours) || IsLinked;
+
+        // Whether the mode can be picked now: in its season, and not ruled out by the other airport's ATIS. With no
+        // ATIS known for that airport it can be (e.g. YSWS RRO with no YSSY ATIS, or YSSY on curfew).
+        public bool IsOffered(DateTime utcNow, TimeZoneInfo timeZone) =>
+            AppliesAt(utcNow, timeZone) && (!IsLinked || AirportCondition.Check(Airport, AirportField, Contains) != false);
 
         private static readonly Regex HoursRegex = new Regex("^(\\d{2})(\\d{2})-(\\d{2})(\\d{2})$");
 
@@ -228,7 +275,25 @@ namespace ATISPlugin
 
         public bool InPeriod(DateTime utcNow, TimeZoneInfo timeZone)
         {
-            if (!IsTimed || timeZone == null) return false;
+            if (!IsTimed) return false;
+
+            if (IsLinked)
+            {
+                var linked = AirportCondition.Check(Airport, AirportField, Contains);
+
+                if (linked == false) return false;
+
+                if (string.IsNullOrWhiteSpace(Hours)) return linked == true && AppliesAt(utcNow, timeZone);
+
+                // Unknown: the hours alone, as before the other airport could be read.
+            }
+
+            return InHours(utcNow, timeZone);
+        }
+
+        private bool InHours(DateTime utcNow, TimeZoneInfo timeZone)
+        {
+            if (string.IsNullOrWhiteSpace(Hours) || timeZone == null) return false;
 
             var match = HoursRegex.Match(Hours.Trim());
 
@@ -289,8 +354,34 @@ namespace ATISPlugin
         [XmlAttribute]
         public int AboveCrosswind { get; set; }
 
+        // Another airport's ATIS to match, e.g. Airport="YPPH" AirportField="RWY" Contains="03". While that ATIS
+        // isn't known, the text is neither added nor removed.
+        [XmlAttribute]
+        public string Airport { get; set; }
+
+        [XmlAttribute]
+        public string AirportField { get; set; }
+
+        // Text to find in AirportField, as whole words; alternatives separated by |.
+        [XmlAttribute]
+        public string Contains { get; set; }
+
+        public bool IsLinked => AirportCondition.IsSet(Airport);
+
         [XmlText]
         public string Text { get; set; }
+
+        // Applies with the other airport's ATIS too: null when that's needed and isn't known.
+        public bool? AppliesNow(string mode, ICollection<string> runwaysInUse, ATISPlugin.Wind wind, Func<string, double> heading)
+        {
+            if (!IsLinked) return Applies(mode, runwaysInUse, wind, heading);
+
+            var linked = AirportCondition.Check(Airport, AirportField, Contains);
+
+            if (linked == null) return null;
+
+            return linked.Value && Applies(mode, runwaysInUse, wind, heading);
+        }
 
         private static readonly Regex DirectionsRegex = new Regex("^(\\d{3})-(\\d{3})$");
 

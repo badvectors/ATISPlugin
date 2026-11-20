@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace ATISPlugin
 {
     // Ranks runway modes against the current weather, following the VATPAC runway management SOP:
-    // crosswind up to 20kt, tailwind up to 5kt on a dry runway and none on a wet one.
+    // crosswind up to 20kt, tailwind up to 5kt on a dry runway and none on a wet one, unless the mode says otherwise.
     public static class RunwaySelection
     {
         public const int MaxCrosswind = 20;
@@ -34,6 +34,8 @@ namespace ATISPlugin
             public PresetMode Mode { get; set; }
             public bool Automatic { get; set; }
             public bool InPeriod { get; set; }
+            // In the low cloud or visibility the mode is preferred in.
+            public bool Preferred { get; set; }
             public bool Usable { get; set; }
             public bool WeatherOk { get; set; }
             // Knots over the crosswind and tailwind limits, combined.
@@ -96,7 +98,9 @@ namespace ATISPlugin
 
         public static Assessment Assess(PresetMode mode, Conditions conditions, Func<string, double> heading)
         {
-            var maxTailwind = conditions.Wet ? MaxTailwindWet : MaxTailwindDry;
+            var maxTailwind = conditions.Wet
+                ? (mode.MaxTailwindWet >= 0 ? mode.MaxTailwindWet : MaxTailwindWet)
+                : (mode.MaxTailwind >= 0 ? mode.MaxTailwind : MaxTailwindDry);
 
             var weatherOk = conditions.Ceiling >= mode.MinCeiling
                 && conditions.Visibility >= mode.MinVisibility
@@ -104,12 +108,13 @@ namespace ATISPlugin
 
             var automatic = mode.IsAutomatic(conditions.UtcNow, conditions.TimeZone);
             var inPeriod = mode.InPeriod(conditions.UtcNow, conditions.TimeZone);
+            var preferred = mode.PreferredIn(conditions.Ceiling, conditions.Visibility);
 
             Assessment best = null;
 
             foreach (var group in RunwayGroups(mode))
             {
-                var assessment = new Assessment { Mode = mode, Automatic = automatic, InPeriod = inPeriod, WeatherOk = weatherOk };
+                var assessment = new Assessment { Mode = mode, Automatic = automatic, InPeriod = inPeriod, Preferred = preferred, WeatherOk = weatherOk };
 
                 if (conditions.Wind != null)
                 {
@@ -128,10 +133,11 @@ namespace ATISPlugin
             }
 
             // Without runways to check, the wind can't be judged, so it's never picked automatically.
-            return best ?? new Assessment { Mode = mode, Automatic = automatic, InPeriod = inPeriod, Usable = false, WeatherOk = weatherOk, Excess = Unlimited, Tailwind = Unlimited, Crosswind = Unlimited, AverageCrosswind = Unlimited };
+            return best ?? new Assessment { Mode = mode, Automatic = automatic, InPeriod = inPeriod, Preferred = preferred, Usable = false, WeatherOk = weatherOk, Excess = Unlimited, Tailwind = Unlimited, Crosswind = Unlimited, AverageCrosswind = Unlimited };
         }
 
-        // Best first: automatic modes, usable, modes within their hours (curfew, RRO), SOP priority, least
+        // Best first: automatic modes, usable, modes within their hours (curfew, RRO) or preferred in the weather
+        // (e.g. YSCB RRO in low cloud), SOP priority, least
         // tailwind, then least crosswind. Ties keep the ATISPresets.xml order, so list approach variants best
         // first (IVA before instrument); a variant whose weather minima aren't met is unusable and drops down.
         private static int Compare(Assessment a, Assessment b)
@@ -143,7 +149,7 @@ namespace ATISPlugin
                 // When nothing is within limits: weather minima met first, then the least over the wind limits.
                 x => x.Usable || x.WeatherOk ? 0 : 1,
                 x => x.Usable ? 0 : x.Excess,
-                x => x.InPeriod ? 0 : 1,
+                x => x.InPeriod || x.Preferred ? 0 : 1,
                 x => x.Mode.Priority > 0 ? x.Mode.Priority : x.Mode.Generated ? Generated : Unranked,
                 x => x.Tailwind,
                 x => x.Crosswind,

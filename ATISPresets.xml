@@ -10,6 +10,9 @@
     MinCeiling, MinVisibility  lowest BKN/OVC cloud base (ft) and visibility (m) the mode needs.
                             METAR steps mean "above 3000FT" is 3100 and "above 5000M" is 6000.
     DryOnly="true"          not used on a wet runway (SFC COND set, or precipitation in the METAR).
+    MaxTailwind="10" MaxTailwindWet="5"  tailwind (kt) allowed on a dry and a wet runway, instead of 5 and none.
+    PreferredBelowCeiling, PreferredBelowVisibility  cloud base (ft) or visibility (m) below which the mode is
+                            preferred over its priority, like a mode within its Hours (e.g. RRO in low cloud).
     AutoSelect="false"      never picked automatically.
     Hours="2300-0600"       local hours the mode is for (curfew, RRO), using TimeZone on <Airport>. Within them
                             it's preferred over other modes; outside them it's never picked automatically.
@@ -18,7 +21,8 @@
     DaylightSaving="true"   limits the mode to daylight saving time ("false": standard time), e.g. AEDT/AEST wording.
                             Outside that season it isn't listed (unless it's the selected mode).
     Runways="10L,10R|28L,28R"  runways to check against the wind when the RWY text names both ends.
-  A mode is usable with up to 20KT crosswind and 5KT tailwind (none when wet) on each of its runways.
+  A mode is usable with up to 20KT crosswind and 5KT tailwind (none when wet, or as MaxTailwind says) on each of
+  its runways.
 
   TimeZone="AUS Eastern Standard Time" on <Airport> is the Windows time zone for Hours.
 
@@ -47,6 +51,18 @@
              AboveCrosswind (on the Runways given, otherwise on any runway in RWY). Checked when WIND, RWY or
              MODE changes.
 
+  Airport="YPPH" AirportField="RWY" Contains="03" on <AutoAdd> or <Mode> depends on another airport's ATIS:
+             met while that airport's AirportField has Contains in it, as whole words ("03" isn't found in "1030";
+             alternatives separated by |). The other ATIS is read from this plugin when the controller holds it,
+             otherwise from ozserver (live network only), and checked every minute. A change is suggested (amber,
+             with the reason when the field name is pointed at), never made by itself.
+             While the other ATIS isn't known (offline, older than 3 hours, a Zulu, or off the live network and
+             not held here), an AutoAdd is left as it is, and a Mode goes by its Hours alone (without Hours, it's
+             out of period). With Hours as well, a Mode is in period only within them and while the other ATIS
+             matches.
+             A Mode the other ATIS rules out isn't offered in the MODE list (unless it's the selected mode, when
+             leaving it is suggested); with no ATIS known for that airport it can still be picked.
+
   APCH options EXP INST APCH, EXP ILS APCH, EXP GLS APCH and EXP RNP APCH are built in for airports that don't
   list any APCH values (as presets or in a mode), and a blank APCH is offered everywhere. With no runway mode
   selected, RWY also offers each runway.
@@ -71,12 +87,27 @@
   visibility is 5000M or less, however many arrival runways there are. Arrival runways are those in RWY clauses
   mentioning ARR or ARRS, or every runway in RWY when none does.
 
+  <MetarSource Url="https://example.org/metar/{ICAO}" Airports="Y" MaxPerRequest="4" Interval="150" /> before the
+             airports sets a division's own METAR API, used alongside vatSys's VATSIM METARs: whichever has the
+             newer report (by its DDHHMMZ time) is used, so a source that's slow, down or missing an airport
+             changes nothing. Without one, or off the live VATSIM network (Sweatbox, a private server), METARs
+             come from vatSys alone.
+             Url: {ICAO} is replaced by the airports, comma separated, up to MaxPerRequest per request (default 4).
+             Airports: ICAO prefixes the source covers, comma separated (default: all). Interval: seconds between
+             requests for an airport (default 300), plus one when an ATIS is created or Load METAR is pressed
+             (no more than every 30 seconds). The answer is a JSON list of { "icao", "kind", "report",
+             "isStale" }; METAR or SPECI before the report and remarks after it are left out, and stale reports or
+             ones older than 90 minutes are ignored. The METAR line says where its METAR came from when pointed at.
+
   Field names must match the Input names in the profile's ATIS.xml (APCH, RWY, SFC COND, OPR INFO, SIGWX).
   RWY values leave out the leading "RWY" because the field name is already spoken.
 
   Wording from the VATPAC ATC SOPs (github.com/vatpac-technology/sops).
 -->
 <ATISPresets>
+
+  <!-- VATPAC's METARs, ahead of VATSIM's feed, asked for every 150 seconds. Australian airports only. -->
+  <MetarSource Url="https://vatpac.org/api/airports/metar/{ICAO}" Airports="Y" MaxPerRequest="4" Interval="150" />
 
   <!-- ===================== Class C ===================== -->
 
@@ -304,6 +335,11 @@
       <Field Name="RWY">05 FOR ARR. RWY 23 FOR DEP</Field>
       <Field Name="OPR INFO">CURFEW IN OPERATION UNTIL TIME 1930</Field>
     </Mode>
+    <!-- RRO outside curfew: last, but first with the cloud base below 400FT or visibility below 2400M. -->
+    <Mode Name="RRO" Priority="7" PreferredBelowCeiling="400" PreferredBelowVisibility="2400">
+      <Field Name="RWY">05 FOR ARR. RWY 23 FOR DEP</Field>
+      <Field Name="OPR INFO" />
+    </Mode>
     <Presets Field="APCH">
       <Preset>ACFT FM THE EAST AND JET ACFT FM THE WEST EXP INST APCH</Preset>
       <Preset>EXP INST APCH</Preset>
@@ -333,14 +369,15 @@
 
   <Airport ICAO="YSCB">
     <!-- The SOP gives no RWY wording for these modes; it follows the YPPH crossing runway format.
-         RRO is last, as it's only suited to noise abatement, which isn't a factor on VATSIM. -->
-    <Mode Name="3530A35D" Priority="1">
-      <Field Name="RWY">35 AND RWY 30 FOR ARR. RWY 35 FOR DEP</Field>
+         RRO is last, as it's mainly for noise abatement, which isn't a factor on VATSIM, but first with the
+         cloud base below 1200FT or visibility below 5000M. -->
+    <Mode Name="3530AD" Priority="1">
+      <Field Name="RWY">35 AND RWY 30 FOR ARR AND DEP</Field>
     </Mode>
-    <Mode Name="1712A17D" Priority="2">
-      <Field Name="RWY">17 AND RWY 12 FOR ARR. RWY 17 FOR DEP</Field>
+    <Mode Name="1712AD" Priority="2">
+      <Field Name="RWY">17 AND RWY 12 FOR ARR AND DEP</Field>
     </Mode>
-    <Mode Name="17A35D (RRO)" Priority="7">
+    <Mode Name="17A35D (RRO)" Priority="7" PreferredBelowCeiling="1200" PreferredBelowVisibility="5000">
       <Field Name="RWY">17 FOR ARR. RWY 35 FOR DEP</Field>
     </Mode>
     <Mode Name="RWY 35" Priority="4">
@@ -365,9 +402,44 @@
   </Airport>
 
   <Airport ICAO="YPDN">
+    <!-- The SOP lists these modes without a priority or RWY wording; it follows the YPPH crossing runway format. -->
+    <Mode Name="29AD36A">
+      <Field Name="RWY">29 AND RWY 36 FOR ARR. RWY 29 FOR DEP</Field>
+    </Mode>
+    <Mode Name="29AD18A">
+      <Field Name="RWY">29 AND RWY 18 FOR ARR. RWY 29 FOR DEP</Field>
+    </Mode>
+    <Mode Name="11AD36A">
+      <Field Name="RWY">11 AND RWY 36 FOR ARR. RWY 11 FOR DEP</Field>
+    </Mode>
+    <Mode Name="11AD18A">
+      <Field Name="RWY">11 AND RWY 18 FOR ARR. RWY 11 FOR DEP</Field>
+    </Mode>
     <Presets Field="OPR INFO" Multiple="true">
       <Preset>LAND AND HOLD SHORT OPERATIONS IN PROGRESS</Preset>
     </Presets>
+  </Airport>
+
+  <Airport ICAO="YBTL">
+    <!-- The SOP gives no RWY wording for these modes; it follows the YSCB crossing runway format. -->
+    <Mode Name="01AD/07AD" Priority="1">
+      <Field Name="RWY">01 AND RWY 07 FOR ARR AND DEP</Field>
+    </Mode>
+    <Mode Name="19AD/25AD" Priority="1">
+      <Field Name="RWY">19 AND RWY 25 FOR ARR AND DEP</Field>
+    </Mode>
+    <Mode Name="RWY 01" Priority="2">
+      <Field Name="RWY">01</Field>
+    </Mode>
+    <Mode Name="RWY 19" Priority="2">
+      <Field Name="RWY">19</Field>
+    </Mode>
+    <Mode Name="RWY 07" Priority="3">
+      <Field Name="RWY">07</Field>
+    </Mode>
+    <Mode Name="RWY 25" Priority="3">
+      <Field Name="RWY">25</Field>
+    </Mode>
   </Airport>
 
   <Airport ICAO="YSWS" TimeZone="AUS Eastern Standard Time">
@@ -379,14 +451,17 @@
       <Field Name="APCH">EXP INST APCH</Field>
       <Field Name="RWY">05</Field>
     </Mode>
-    <!-- Permitted between 2300 and 0530 local when YSSY curfew is in use: arrivals 05, departures 23. -->
-    <Mode Name="RRO" Hours="2300-0530" Runways="05,23">
+    <!-- Permitted between 2300 and 0530 local when YSSY curfew is in use: arrivals 05, departures 23. Suggested
+         while YSSY's ATIS has its curfew in operation; by the hours alone when YSSY's ATIS isn't known. -->
+    <Mode Name="RRO" Hours="2300-0530" Runways="05,23" Airport="YSSY" AirportField="OPR INFO" Contains="CURFEW IN OPERATION">
       <Field Name="APCH">EXP INST APCH</Field>
       <Field Name="RWY">05 FOR ARR. RWY 23 FOR DEP</Field>
     </Mode>
     <Presets Field="APCH">
       <Preset>EXP INST APCH</Preset>
     </Presets>
+    <!-- The SOP's ATIS wording for RRO, in OPR INFO while RRO is the mode. -->
+    <AutoAdd Field="OPR INFO" Modes="RRO">RECIPROCAL RWY OPS IN PROGRESS</AutoAdd>
     <Presets Field="OPR INFO" Multiple="true" Modes="RRO">
       <Preset>RECIPROCAL RWY OPS IN PROGRESS</Preset>
     </Presets>
@@ -429,8 +504,8 @@
       <Preset />
     </Presets>
     <Presets Field="OPR INFO" Multiple="true">
-      <Preset>R 5 9 6 HIGH ACTIVE</Preset>
-      <Preset>R 5 9 6 LOW ACTIVE</Preset>
+      <Preset>R 5 9 7 A AND R 5 9 7 B ACTIVE</Preset>
+      <Preset>R 5 9 7 A ACTIVE</Preset>
     </Presets>
   </Airport>
 
@@ -525,9 +600,10 @@
     <Presets Field="OPR INFO" Multiple="true">
       <Preset>DUE YPPH DUTY RWY 03, CAUTION WAKE TURB</Preset>
     </Presets>
+    <AutoAdd Field="OPR INFO" Airport="YPPH" AirportField="RWY" Contains="03">DUE YPPH DUTY RWY 03, CAUTION WAKE TURB</AutoAdd>
   </Airport>
 
-  <Airport ICAO="YMMB" SingleRunwayFormat="ALL OPERATIONS RWY {RWY}" ReportCrosswindFrom="5">
+  <Airport ICAO="YMMB" SingleRunwayFormat="{RWY} ALL AIRBORNE OPERATIONS" ReportCrosswindFrom="5">
     <Mode Name="17 PROPS" Priority="1">
       <Field Name="RWY">17L FOR ARRS AND DEPS EAST. RWY 17R FOR ARRS AND DEPS WEST</Field>
     </Mode>
