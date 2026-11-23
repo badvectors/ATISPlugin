@@ -634,6 +634,9 @@ namespace ATISPlugin
                     Frequencies.Add(frequency);
                 }
 
+                // Extending a frequency can bring a Zulu ATIS contact online.
+                CheckZuluContacts();
+
                 if (!IsEditorOpen()) return;
 
                 if (Editor != null && !Editor.IsDisposed && frequenciesUpdate)

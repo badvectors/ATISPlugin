@@ -20,5 +20,9 @@ namespace ATISPlugin
 
         // How it's said on the ATIS, e.g. CANBERRA APPROACH.
         public string Station { get; set; }
+
+        // Optional, e.g. 133.55. Anyone in range transmitting on it, extended or not, makes the contact online.
+        // Without it, the profile's sector with this callsign gives the frequency (not for a callsign with a *).
+        public string Frequency { get; set; }
     }
 }
