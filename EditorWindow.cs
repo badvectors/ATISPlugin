@@ -63,9 +63,10 @@ namespace ATISPlugin
 
             ComboBoxZuluFrequency.Items.Add(ZuluAuto);
 
-            foreach (var frequency in Plugin.Frequencies)
+            // This controller's frequencies, then those of every other controller in range.
+            foreach (var frequency in Zulu.PickableFrequencies())
             {
-                ComboBoxZuluFrequency.Items.Add(string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName);
+                ComboBoxZuluFrequency.Items.Add(frequency.Label);
             }
 
             var index = string.IsNullOrWhiteSpace(ZuluFrequency) ? 0 : ComboBoxZuluFrequency.Items.IndexOf(ZuluFrequency);
@@ -2685,15 +2686,13 @@ namespace ATISPlugin
             // A frequency picked by hand, otherwise the first of the airport's contacts that's online. With
             // neither, {STATION} {FREQ} stay for the controller to fill in.
             var frequency = string.IsNullOrWhiteSpace(ZuluFrequency) ? null
-                : Plugin.Frequencies.FirstOrDefault(x => x.Name == ZuluFrequency || x.FriendlyName == ZuluFrequency);
+                : Zulu.PickableFrequencies().FirstOrDefault(x => x.Label == ZuluFrequency);
 
             if (frequency != null)
             {
-                var station = string.IsNullOrWhiteSpace(frequency.FriendlyName) ? frequency.Name : frequency.FriendlyName;
+                atis = atis.Replace("{STATION}", frequency.Station);
 
-                atis = atis.Replace("{STATION}", station.ToUpper());
-
-                atis = atis.Replace("{FREQ}", Conversions.FrequencyToString(frequency.Frequency));
+                atis = atis.Replace("{FREQ}", frequency.Frequency);
             }
             else
             {
