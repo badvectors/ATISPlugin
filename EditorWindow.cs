@@ -852,6 +852,8 @@ namespace ATISPlugin
 
             BeginInvoke(new Action(() => Safely("offer the saved ATIS", () =>
             {
+                var shown = false;
+
                 try
                 {
                     var saved = control.OfferedSaved;
@@ -868,26 +870,58 @@ namespace ATISPlugin
                         return;
                     }
 
-                    using (var window = new StartWindow(saved, utcNow))
+                    // Not modal: a modal loop disables every vatSys window and leaves vatSys's focus off the ASD when
+                    // it ends, so vatSys's own focus-on-hover then pulls the ASD in front of other programs. The
+                    // editor is disabled instead, so nothing changes in it until the choice is made.
+                    var window = new StartWindow(saved, utcNow);
+
+                    window.FormClosed += (s, e) => Safely("offer the saved ATIS", () =>
                     {
-                        if (Visible) window.ShowDialog(this);
-                        else
+                        try
                         {
-                            window.StartPosition = FormStartPosition.CenterScreen;
+                            if (!IsDisposed) Enabled = true;
 
-                            window.ShowDialog();
+                            // Deleted while the window was open.
+                            if (control.OfferedSaved != saved) return;
+
+                            if (window.Result == StartWindow.Choice.Broadcast) control.BroadcastSaved(saved);
+                            else control.StartFresh(saved);
                         }
+                        finally
+                        {
+                            OfferingSavedATIS = false;
 
-                        // Deleted while the window was open.
-                        if (control.OfferedSaved != saved) return;
+                            window.Dispose();
+                        }
+                    });
 
-                        if (window.Result == StartWindow.Choice.Broadcast) control.BroadcastSaved(saved);
-                        else control.StartFresh(saved);
+                    var owner = Visible ? (IWin32Window)this : Application.OpenForms["MainForm"];
+
+                    // CenterParent only applies to a modal window, so it's centred over the editor by hand.
+                    if (Visible)
+                    {
+                        window.StartPosition = FormStartPosition.Manual;
+
+                        window.Location = new System.Drawing.Point(
+                            Left + (Width - window.Width) / 2,
+                            Top + (Height - window.Height) / 2);
                     }
+                    else window.StartPosition = FormStartPosition.CenterScreen;
+
+                    if (Visible) Enabled = false;
+
+                    window.Show(owner);
+
+                    shown = true;
                 }
                 finally
                 {
-                    OfferingSavedATIS = false;
+                    if (!shown)
+                    {
+                        if (!IsDisposed) Enabled = true;
+
+                        OfferingSavedATIS = false;
+                    }
                 }
             })));
         }
