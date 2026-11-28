@@ -10,8 +10,8 @@
 		<VatSysBin Condition="'$(VatSysBin)' == ''">$(ProgramFilesX86)\vatSys\bin</VatSysBin>
 		<OutputPath>C:\Users\ajdun\OneDrive\Documents\vatSys Files\Profiles\Australia\Plugins\ATIS Plugin</OutputPath>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-		<AssemblyVersion>4.5</AssemblyVersion>
-		<FileVersion>4.5</FileVersion>
+		<AssemblyVersion>4.6</AssemblyVersion>
+		<FileVersion>4.6</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
