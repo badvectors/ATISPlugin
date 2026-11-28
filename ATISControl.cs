@@ -490,6 +490,7 @@ namespace ATISPlugin
             SavedATISPending = false;
             OfferedSaved = null;
             SavedLetter = null;
+            PreviousSaved = null;
             HasSaved = false;
             LetterBroadcast = false;
 
@@ -533,6 +534,11 @@ namespace ATISPlugin
             HasSaved = true;
             SavedLetter = null;
 
+            // A new ATIS created in place of the saved one carries on from it, so it's compared with that ATIS.
+            var previous = PreviousSaved;
+
+            PreviousSaved = null;
+
             foreach (var line in Lines)
             {
                 line.Changed = false;
@@ -540,7 +546,9 @@ namespace ATISPlugin
 
             var surfaceLine = Lines.FirstOrDefault(x => x.Name == SurfaceCondition.Field);
 
-            var wasDry = surfaceLine?.Value == SurfaceCondition.Dry;
+            var wasDry = previous != null
+                ? PresetAirport.Clean(previous.Get(SurfaceCondition.Field)) == SurfaceCondition.Dry
+                : surfaceLine?.Value == SurfaceCondition.Dry;
 
             foreach (var item in items)
             {
@@ -553,6 +561,17 @@ namespace ATISPlugin
                 line.Value = item.Value.ToUpper();
 
                 line.Changed = true;
+            }
+
+            // Only the fields that differ from the saved ATIS are marked as changed (+), not every field filled in.
+            if (previous != null)
+            {
+                foreach (var line in Lines)
+                {
+                    if (line.Name == "ZULU") continue;
+
+                    line.Changed = PresetAirport.Clean(line.Value) != PresetAirport.Clean(previous.Get(line.Name));
+                }
             }
 
             UpdateSurfaceConditionTracking(surfaceLine, wasDry);
@@ -805,6 +824,8 @@ namespace ATISPlugin
                     SavedLetter = saved.Letter;
                 }
 
+                PreviousSaved = saved;
+
                 SuggestionsVersion++;
             }
 
@@ -817,6 +838,9 @@ namespace ATISPlugin
 
             SavedATISPending = false;
         }
+
+        // The saved ATIS that Create New replaced, until the first save, which marks only what differs from it (+).
+        private SavedATIS PreviousSaved { get; set; }
 
         // The letter of the saved ATIS being carried on from, for the editor to give the next one. Null otherwise.
         public char? SavedLetter { get; set; }

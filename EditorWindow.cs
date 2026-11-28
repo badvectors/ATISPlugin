@@ -1723,7 +1723,8 @@ namespace ATISPlugin
                     SetText(TextBoxMode, Mode);
                 }
 
-                // Carrying on from a saved ATIS gives the letter after its one.
+                // Carrying on from a saved ATIS gives the letter after its one. A saved ATIS broadcast as it was keeps
+                // its letter, with nothing to save, unless the METAR (or anything else) suggests changes to it.
                 if (Control.SavedLetter != null)
                 {
                     ID = Control.SavedLetter.Value;
@@ -1732,7 +1733,7 @@ namespace ATISPlugin
 
                     ComboBoxLetter.SelectedIndex = ComboBoxLetter.Items.IndexOf(ID.ToString());
 
-                    IncreaseID();
+                    if (!Control.LetterBroadcast || Control.HasUpdates) IncreaseID();
                 }
 
                 AppliedMetar = Control.METARRaw;
