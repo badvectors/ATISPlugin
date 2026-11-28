@@ -563,26 +563,29 @@ namespace ATISPlugin
 
                 item.Click += (s, e) => Safely("use the option", () =>
                 {
-                    var value = preset;
+                    void Use(string value) => textBox.Text = multiple ? TogglePreset(textBox.Text, value) : value;
 
-                    if (isTemplate)
+                    if (!isTemplate)
                     {
-                        // Windshear is reported on a runway in use; a runway change can be to any runway.
-                        var runways = line.Name == Windshear.Field ? GetRunwaysInUse() : GetRunwayNames().ToList();
+                        Use(preset);
 
-                        if (!runways.Any()) runways = GetRunwayNames().ToList();
-
-                        var defaults = PresetAirport?.Defaults.ToDictionary(x => x.Name, x => x.Value) ?? new Dictionary<string, string>();
-
-                        using (var templateWindow = new TemplateWindow(preset, runways, GetRunwayModes(), defaults, ComboBoxLetter.MenuRenderer))
-                        {
-                            if (templateWindow.ShowDialog(this) != DialogResult.OK) return;
-
-                            value = templateWindow.Result;
-                        }
+                        return;
                     }
 
-                    textBox.Text = multiple ? TogglePreset(textBox.Text, value) : value;
+                    // Windshear is reported on a runway in use; a runway change can be to any runway.
+                    var runways = line.Name == Windshear.Field ? GetRunwaysInUse() : GetRunwayNames().ToList();
+
+                    if (!runways.Any()) runways = GetRunwayNames().ToList();
+
+                    var defaults = PresetAirport?.Defaults.ToDictionary(x => x.Name, x => x.Value) ?? new Dictionary<string, string>();
+
+                    var templateWindow = new TemplateWindow(preset, runways, GetRunwayModes(), defaults, ComboBoxLetter.MenuRenderer);
+
+                    // Filled in only on OK; Cancel or closing the window leaves the field as it was.
+                    ShowOwned(templateWindow, "use the option", () =>
+                    {
+                        if (templateWindow.DialogResult == DialogResult.OK) Use(templateWindow.Result);
+                    });
                 });
 
                 FieldMenu.Items.Add(item);
@@ -870,17 +873,12 @@ namespace ATISPlugin
                         return;
                     }
 
-                    // Not modal: a modal loop disables every vatSys window and leaves vatSys's focus off the ASD when
-                    // it ends, so vatSys's own focus-on-hover then pulls the ASD in front of other programs. The
-                    // editor is disabled instead, so nothing changes in it until the choice is made.
                     var window = new StartWindow(saved, utcNow);
 
-                    window.FormClosed += (s, e) => Safely("offer the saved ATIS", () =>
+                    ShowOwned(window, "offer the saved ATIS", () =>
                     {
                         try
                         {
-                            if (!IsDisposed) Enabled = true;
-
                             // Deleted while the window was open.
                             if (control.OfferedSaved != saved) return;
 
@@ -890,40 +888,68 @@ namespace ATISPlugin
                         finally
                         {
                             OfferingSavedATIS = false;
-
-                            window.Dispose();
                         }
                     });
-
-                    var owner = Visible ? (IWin32Window)this : Application.OpenForms["MainForm"];
-
-                    // CenterParent only applies to a modal window, so it's centred over the editor by hand.
-                    if (Visible)
-                    {
-                        window.StartPosition = FormStartPosition.Manual;
-
-                        window.Location = new System.Drawing.Point(
-                            Left + (Width - window.Width) / 2,
-                            Top + (Height - window.Height) / 2);
-                    }
-                    else window.StartPosition = FormStartPosition.CenterScreen;
-
-                    if (Visible) Enabled = false;
-
-                    window.Show(owner);
 
                     shown = true;
                 }
                 finally
                 {
-                    if (!shown)
-                    {
-                        if (!IsDisposed) Enabled = true;
-
-                        OfferingSavedATIS = false;
-                    }
+                    if (!shown) OfferingSavedATIS = false;
                 }
             })));
+        }
+
+        // Shows one of the plugin's own windows in place of ShowDialog. A modal loop disables every vatSys window and
+        // leaves vatSys's focus off the ASD when it ends, so vatSys's own focus-on-hover then pulls the ASD in front
+        // of other programs. Instead the window is owned by the editor (or vatSys's main window when the editor is
+        // closed) and the editor is disabled until it closes, so nothing changes in it meanwhile. closed runs once
+        // the window has closed, however it was closed; the window is disposed after it.
+        private void ShowOwned(Form window, string doing, Action closed)
+        {
+            var disabled = Visible;
+
+            window.FormClosed += (s, e) => Safely(doing, () =>
+            {
+                try
+                {
+                    if (disabled && !IsDisposed) Enabled = true;
+
+                    closed();
+                }
+                finally
+                {
+                    window.Dispose();
+                }
+            });
+
+            // CenterParent only applies to a modal window, so it's centred over the editor by hand.
+            if (Visible)
+            {
+                window.StartPosition = FormStartPosition.Manual;
+
+                window.Location = new System.Drawing.Point(
+                    Left + (Width - window.Width) / 2,
+                    Top + (Height - window.Height) / 2);
+            }
+            else window.StartPosition = FormStartPosition.CenterScreen;
+
+            var owner = Visible ? (IWin32Window)this : Application.OpenForms["MainForm"];
+
+            if (disabled) Enabled = false;
+
+            try
+            {
+                window.Show(owner);
+            }
+            catch
+            {
+                if (disabled && !IsDisposed) Enabled = true;
+
+                window.Dispose();
+
+                throw;
+            }
         }
 
         private int DrawingPaused { get; set; }
